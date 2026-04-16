@@ -1,0 +1,8 @@
+spring:
+  application:
+    name: lumina-ai
+
+lumina:
+  gmail:
+    credentials-file-path: ${GMAIL_CREDENTIALS_FILE_PATH:credentials.json}
+    tokens-directory-path: tokens
