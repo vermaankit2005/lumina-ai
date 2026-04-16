@@ -8,7 +8,7 @@ class GmailFetchServiceTest {
 
     @Test
     void canInitializeService() {
-        GmailFetchService service = new GmailFetchService(null);
+        GmailFetchService service = new GmailFetchService(java.util.Optional.empty());
         assertNotNull(service);
     }
 }

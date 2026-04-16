@@ -12,11 +12,14 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 
 @Service
-@RequiredArgsConstructor
 public class GmailFetchService {
 
     private static final Logger log = LoggerFactory.getLogger(GmailFetchService.class);
     private final Gmail gmail;
+
+    public GmailFetchService(java.util.Optional<Gmail> gmailOptional) {
+        this.gmail = gmailOptional.orElse(null);
+    }
 
     public void fetchRecentEmails() {
         if (gmail == null) {
