@@ -32,8 +32,8 @@ dependencies {
 
     // JAXB (Required for Java 11+, and compatibility with libraries using javax namespace)
     implementation("jakarta.xml.bind:jakarta.xml.bind-api:4.0.0")
+    implementation("javax.xml.bind:jaxb-api:2.3.1")
     runtimeOnly("org.glassfish.jaxb:jaxb-runtime:4.0.2")
-    testImplementation("javax.xml.bind:jaxb-api:2.3.1")
     testImplementation("org.glassfish.jaxb:jaxb-runtime:2.3.1")
 
     compileOnly("org.projectlombok:lombok")
