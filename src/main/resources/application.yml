@@ -1,8 +1,24 @@
 spring:
   application:
     name: lumina-ai
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:5432/${POSTGRES_DB:luminaai}
+    username: ${POSTGRES_USER:lumina}
+    password: ${POSTGRES_PASSWORD:lumina_secret}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate.dialect: org.hibernate.dialect.PostgreSQLDialect
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
 
 lumina:
   gmail:
     credentials-file-path: ${GMAIL_CREDENTIALS_FILE_PATH:credentials.json}
     tokens-directory-path: tokens
+  telegram:
+    bot-token: ${TELEGRAM_BOT_TOKEN:}
+    bot-username: ${TELEGRAM_BOT_USERNAME:}
+    allowed-chat-id: ${TELEGRAM_ALLOWED_CHAT_ID:0}

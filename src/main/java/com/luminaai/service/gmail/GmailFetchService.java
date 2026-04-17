@@ -62,4 +62,39 @@ public class GmailFetchService {
             log.error("Failed to fetch emails", e);
         }
     }
+
+    public String fetchLatestEmailSubject() {
+        if (gmail == null) {
+            log.warn("Gmail client is null, skipping fetch.");
+            return null;
+        }
+        try {
+            ListMessagesResponse response = gmail.users().messages().list("me")
+                    .setQ("is:unread")
+                    .setMaxResults(1L)
+                    .execute();
+
+            List<Message> messages = response.getMessages();
+            if (messages == null || messages.isEmpty()) {
+                log.info("No unread messages found.");
+                return null;
+            }
+
+            Message fullMsg = gmail.users().messages().get("me", messages.get(0).getId())
+                    .setFormat("metadata")
+                    .setMetadataHeaders(List.of("Subject"))
+                    .execute();
+
+            if (fullMsg.getPayload() != null && fullMsg.getPayload().getHeaders() != null) {
+                for (MessagePartHeader header : fullMsg.getPayload().getHeaders()) {
+                    if ("Subject".equalsIgnoreCase(header.getName())) {
+                        return header.getValue();
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.error("Failed to fetch latest email subject", e);
+        }
+        return null;
+    }
 }
