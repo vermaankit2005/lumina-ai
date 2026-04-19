@@ -13,6 +13,13 @@ java {
 
 repositories {
     mavenCentral()
+    maven { url = uri("https://repo.spring.io/milestone") }
+}
+
+dependencyManagement {
+    imports {
+        mavenBom("org.springframework.ai:spring-ai-bom:1.0.0-M6")
+    }
 }
 
 dependencies {
@@ -35,6 +42,9 @@ dependencies {
     implementation("javax.xml.bind:jaxb-api:2.3.1")
     runtimeOnly("org.glassfish.jaxb:jaxb-runtime:4.0.2")
     testImplementation("org.glassfish.jaxb:jaxb-runtime:2.3.1")
+
+    // Spring AI
+    implementation("org.springframework.ai:spring-ai-ollama-spring-boot-starter")
 
     compileOnly("org.projectlombok:lombok")
     annotationProcessor("org.projectlombok:lombok")

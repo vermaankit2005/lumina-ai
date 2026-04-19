@@ -1,6 +1,7 @@
 package com.luminaai.service.gmail;
 
 import com.google.api.services.gmail.Gmail;
+import com.luminaai.domain.model.EmailMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -146,5 +147,64 @@ public class GmailFetchService {
             log.warn("Failed to fetch latest email from Mailpit: {}", e.getMessage());
         }
         return null;
+    }
+
+    public EmailMessage fetchLatestEmailMessage() {
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> response = restTemplate.getForObject(mailpitApiUrl + "?limit=1", Map.class);
+            if (response == null || !response.containsKey("messages")) return null;
+
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> messages = (List<Map<String, Object>>) response.get("messages");
+            if (messages == null || messages.isEmpty()) return null;
+
+            Map<String, Object> msg = messages.get(0);
+            String id = (String) msg.get("ID");
+            String subject = (String) msg.get("Subject");
+
+            // From is an object: {"Name": "...", "Address": "..."}
+            String from = "";
+            Object fromObj = msg.get("From");
+            if (fromObj instanceof Map) {
+                @SuppressWarnings("unchecked")
+                Map<String, String> fromMap = (Map<String, String>) fromObj;
+                String name = fromMap.getOrDefault("Name", "");
+                String address = fromMap.getOrDefault("Address", "");
+                from = name.isBlank() ? address : name + " <" + address + ">";
+            } else if (fromObj instanceof String) {
+                from = (String) fromObj;
+            }
+
+            // Fetch body from detail endpoint
+            String body = fetchMessageBody(id);
+
+            return EmailMessage.builder()
+                    .id(id)
+                    .subject(subject)
+                    .from(from)
+                    .body(body)
+                    .build();
+
+        } catch (Exception e) {
+            log.warn("Failed to fetch latest email from Mailpit: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    private String fetchMessageBody(String messageId) {
+        try {
+            // Derive detail URL from mailpitApiUrl: replace /messages with /message/{id}
+            String baseUrl = mailpitApiUrl.replace("/messages", "");
+            String detailUrl = baseUrl + "/message/" + messageId;
+            @SuppressWarnings("unchecked")
+            Map<String, Object> detail = restTemplate.getForObject(detailUrl, Map.class);
+            if (detail != null && detail.containsKey("Text")) {
+                return (String) detail.get("Text");
+            }
+        } catch (Exception e) {
+            log.warn("Failed to fetch body for message {}: {}", messageId, e.getMessage());
+        }
+        return "(body unavailable)";
     }
 }

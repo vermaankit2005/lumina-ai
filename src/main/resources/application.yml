@@ -6,7 +6,7 @@ spring:
   datasource:
     url: jdbc:postgresql://${POSTGRES_HOST:localhost}:5432/${POSTGRES_DB:luminaai}
     username: ${POSTGRES_USER:lumina}
-    password: ${POSTGRES_PASSWORD:lumina_secret}
+    password: ${POSTGRES_PASSWORD}
   jpa:
     hibernate:
       ddl-auto: validate
@@ -15,12 +15,21 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+  ai:
+    ollama:
+      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      chat:
+        options:
+          model: ${OLLAMA_MODEL:mistral}
+          temperature: 0.1
 
 lumina:
   gmail:
     credentials-file-path: ${GMAIL_CREDENTIALS_FILE_PATH:credentials.json}
     tokens-directory-path: tokens
   telegram:
-    bot-token: ${TELEGRAM_BOT_TOKEN:}
-    bot-username: ${TELEGRAM_BOT_USERNAME:}
-    allowed-chat-id: ${TELEGRAM_ALLOWED_CHAT_ID:0}
+    bot-token: ${TELEGRAM_BOT_TOKEN}
+    bot-username: ${TELEGRAM_BOT_USERNAME:lumina_my_bot}
+    allowed-chat-id: ${TELEGRAM_ALLOWED_CHAT_ID}
+  mailpit:
+    api-url: ${MAILPIT_API_URL:http://localhost:8025/api/v1/messages}
