@@ -1,0 +1,33 @@
+# Gradle
+.gradle/
+build/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Eclipse
+.settings/
+.classpath
+.project
+.metadata/
+
+# VS Code
+.vscode/
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Lumina sensitive files
+.env
+*.key
+credentials.json
+application-groq.yml
+
+# Claude Code
+.claude/
+*.md

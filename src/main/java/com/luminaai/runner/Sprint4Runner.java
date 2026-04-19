@@ -68,9 +68,7 @@ public class Sprint4Runner implements CommandLineRunner {
             List<ActionTask> savedTasks = new ArrayList<>();
             if (analysis.getTasks() != null) {
                 for (LLMAnalysisResult.TaskItem item : analysis.getTasks()) {
-                    if (actionTaskRepository.existsBySourceEmailId(item.getSourceEmailId())) {
-                        continue;
-                    }
+
                     ActionTask task = ActionTask.builder()
                             .title(item.getTitle())
                             .description(item.getDescription())
