@@ -12,17 +12,24 @@ import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.client.util.store.FileDataStoreFactory;
 import com.google.api.services.gmail.Gmail;
 import com.google.api.services.gmail.GmailScopes;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * Configures the Gmail API client using OAuth 2.0.
+ *
+ * <p>If the credentials file is absent (e.g. first-time setup or CI), the bean returns
+ * {@code null} and {@link com.luminaai.service.gmail.GmailFetchService} degrades gracefully.
+ */
+@Slf4j
 @Configuration
 public class GmailApiConfig {
 
@@ -37,28 +44,26 @@ public class GmailApiConfig {
 
     @Bean
     public Gmail gmailService() throws Exception {
-        final NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
+        final NetHttpTransport httpTransport = GoogleNetHttpTransport.newTrustedTransport();
 
         GoogleClientSecrets clientSecrets;
         try {
             clientSecrets = GoogleClientSecrets.load(JSON_FACTORY, new FileReader(credentialsFilePath));
         } catch (FileNotFoundException e) {
-            // For now, if credentials file is not found, we simply return null or throw.
-            // Throwing is better but since we are iterating, we can return null and handle it in the service
-            System.err.println("credentials.json not found. Returning null Gmail client.");
+            log.warn("Gmail credentials file not found at '{}'. Gmail fetch will be disabled.", credentialsFilePath);
             return null;
         }
 
         GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(
-                HTTP_TRANSPORT, JSON_FACTORY, clientSecrets, SCOPES)
-                .setDataStoreFactory(new FileDataStoreFactory(new java.io.File(tokensDirectoryPath)))
+                httpTransport, JSON_FACTORY, clientSecrets, SCOPES)
+                .setDataStoreFactory(new FileDataStoreFactory(new File(tokensDirectoryPath)))
                 .setAccessType("offline")
                 .build();
 
         LocalServerReceiver receiver = new LocalServerReceiver.Builder().setPort(8888).build();
         Credential credential = new AuthorizationCodeInstalledApp(flow, receiver).authorize("user");
 
-        return new Gmail.Builder(HTTP_TRANSPORT, JSON_FACTORY, credential)
+        return new Gmail.Builder(httpTransport, JSON_FACTORY, credential)
                 .setApplicationName("Lumina AI")
                 .build();
     }

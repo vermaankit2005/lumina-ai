@@ -25,9 +25,9 @@ class TelegramNotificationServiceTest {
     }
 
     @Test
-    void sendMessageDoesNotThrowWhenTokenIsEmpty() {
-        // When bot token is empty (no Telegram configured), sendMessage should
-        // log a warning and return rather than throwing an exception.
-        assertDoesNotThrow(() -> service.sendMessage("hello"));
+    void send_doesNotThrowWhenTokenIsEmpty() {
+        // When the bot token is absent (local dev without Telegram), send() must
+        // log a warning and return gracefully rather than throwing.
+        assertDoesNotThrow(() -> service.send("hello"));
     }
 }

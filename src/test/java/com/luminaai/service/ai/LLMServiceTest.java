@@ -1,8 +1,7 @@
 package com.luminaai.service.ai;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.luminaai.domain.model.AnalysisResult;
 import com.luminaai.domain.model.EmailMessage;
-import com.luminaai.domain.model.LLMAnalysisResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -40,40 +39,41 @@ class LLMServiceTest {
     }
 
     @Test
-    void analyzeEmails_withEmptyList_returnsEmptyResult() {
-        LLMAnalysisResult result = llmService.analyzeEmails(List.of());
+    void analyze_withEmptyList_returnsEmptyResult() {
+        AnalysisResult result = llmService.analyze(List.of());
+
         assertThat(result).isNotNull();
         assertThat(result.getSummary()).isEqualTo("No significant emails to report.");
         assertThat(result.getTasks()).isEmpty();
     }
 
     @Test
-    void analyzeEmails_withNullList_returnsEmptyResult() {
-        LLMAnalysisResult result = llmService.analyzeEmails(null);
+    void analyze_withNullList_returnsEmptyResult() {
+        AnalysisResult result = llmService.analyze(null);
+
         assertThat(result).isNotNull();
         assertThat(result.getTasks()).isEmpty();
     }
 
     @Test
-    void analyzeEmails_withEmail_callsChatClientAndParsesJson() throws Exception {
-        // Arrange
+    void analyze_withEmail_callsChatClientAndParsesJson() {
         String jsonResponse = """
-            {
-              "summary": "Test summary",
-              "important_thread_count": 1,
-              "tasks": [
                 {
-                  "title": "Reply to test email",
-                  "description": "Test description",
-                  "priority": "MEDIUM",
-                  "source_email_id": "msg-001",
-                  "source_sender": "Sender <sender@example.com>",
-                  "source_subject": "Test Subject",
-                  "confidence": 0.9
+                  "summary": "Test summary",
+                  "important_thread_count": 1,
+                  "tasks": [
+                    {
+                      "title": "Reply to test email",
+                      "description": "Test description",
+                      "priority": "MEDIUM",
+                      "source_email_id": "msg-001",
+                      "source_sender": "Sender <sender@example.com>",
+                      "source_subject": "Test Subject",
+                      "confidence": 0.9
+                    }
+                  ]
                 }
-              ]
-            }
-            """;
+                """;
 
         when(chatClient.prompt()).thenReturn(requestSpec);
         when(requestSpec.system(anyString())).thenReturn(requestSpec);
@@ -88,10 +88,8 @@ class LLMServiceTest {
                 .body("Please reply to this test email.")
                 .build();
 
-        // Act
-        LLMAnalysisResult result = llmService.analyzeEmails(List.of(email));
+        AnalysisResult result = llmService.analyze(List.of(email));
 
-        // Assert
         assertThat(result.getSummary()).isEqualTo("Test summary");
         assertThat(result.getTasks()).hasSize(1);
         assertThat(result.getTasks().get(0).getTitle()).isEqualTo("Reply to test email");
@@ -100,7 +98,7 @@ class LLMServiceTest {
     }
 
     @Test
-    void analyzeEmails_whenLLMThrowsException_returnsFallback() {
+    void analyze_whenLLMThrowsException_returnsFallback() {
         when(chatClient.prompt()).thenReturn(requestSpec);
         when(requestSpec.system(anyString())).thenReturn(requestSpec);
         when(requestSpec.user(anyString())).thenReturn(requestSpec);
@@ -109,7 +107,7 @@ class LLMServiceTest {
         EmailMessage email = EmailMessage.builder()
                 .id("msg-002").subject("Subject").from("a@b.com").body("body").build();
 
-        LLMAnalysisResult result = llmService.analyzeEmails(List.of(email));
+        AnalysisResult result = llmService.analyze(List.of(email));
 
         assertThat(result).isNotNull();
         assertThat(result.getTasks()).isEmpty();
