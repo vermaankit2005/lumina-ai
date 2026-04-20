@@ -29,7 +29,9 @@ RULES FOR ACTION ITEM EXTRACTION:
 - Minimum confidence threshold: 0.6 (do not include items below this)
 
 CRITICAL OUTPUT RULES:
-- Your ENTIRE response must be valid JSON — no preamble, no explanation, no markdown code fences
+- Your ENTIRE response must be raw, valid JSON — nothing else
+- Do NOT wrap your response in ```json or any code block — output only the JSON object itself
+- No preamble, no explanation, no trailing text
 - Never include email bodies or PII beyond what is needed for task context
 - Today's date is provided in the user message — use it for deadline calculations
 - If no important emails exist, return empty arrays (not null)

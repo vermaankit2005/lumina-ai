@@ -77,6 +77,17 @@ CREATE INDEX idx_action_tasks_external_id ON action_tasks (external_id);
 CREATE INDEX idx_action_tasks_briefing_run ON action_tasks (briefing_run_id);
 
 -- ============================================================
+-- TABLE: processed_emails
+-- Persistent memory of emails that have already been processed to avoid duplicates
+-- ============================================================
+CREATE TABLE processed_emails (
+                                  id           BIGSERIAL    PRIMARY KEY,
+                                  email_id     VARCHAR(255) NOT NULL,
+                                  processed_at TIMESTAMP    NOT NULL DEFAULT NOW(),
+                                  CONSTRAINT uq_processed_email_id UNIQUE (email_id)
+);
+
+-- ============================================================
 -- TRIGGER: auto-update updated_at timestamps
 -- ============================================================
 CREATE OR REPLACE FUNCTION update_updated_at_column()

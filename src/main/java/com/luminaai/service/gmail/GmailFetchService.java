@@ -1,210 +1,93 @@
 package com.luminaai.service.gmail;
 
 import com.google.api.services.gmail.Gmail;
+import com.google.api.services.gmail.model.Message;
+import com.google.api.services.gmail.model.MessagePartHeader;
 import com.luminaai.domain.model.EmailMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 @Service
-public class GmailFetchService {
+@Profile("!test")
+public class GmailFetchService implements EmailFetcher {
 
     private static final Logger log = LoggerFactory.getLogger(GmailFetchService.class);
-    private final Gmail gmail;
-    private final RestTemplate restTemplate = new RestTemplate();
+    private static final long TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000L;
 
-    @Value("${lumina.mailpit.api-url}")
-    private String mailpitApiUrl;
+    private final Gmail gmail;
 
     public GmailFetchService(java.util.Optional<Gmail> gmailOptional) {
         this.gmail = gmailOptional.orElse(null);
     }
 
-    public void fetchRecentEmails() {
-        // TODO: Re-enable real Gmail API integration once API access is configured.
-        // To re-enable: Uncomment the block below and comment out the Mailpit mock logic.
-        /*
+    @Override
+    public List<EmailMessage> fetchEmailsFromLast24Hours() {
         if (gmail == null) {
             log.warn("Gmail client is null, skipping fetch.");
-            return;
+            return List.of();
         }
 
         try {
-            log.info("Fetching recent unread emails...");
-            ListMessagesResponse response = gmail.users().messages().list("me")
-                    .setQ("is:unread")
-                    .setMaxResults(5L)
+            long sinceSeconds = (System.currentTimeMillis() - TWENTY_FOUR_HOURS_MS) / 1000;
+            var response = gmail.users().messages().list("me")
+                    .setQ("after:" + sinceSeconds)
+                    .setMaxResults(50L)
                     .execute();
 
-            List<Message> messages = response.getMessages();
-            if (messages == null || messages.isEmpty()) {
-                log.info("No new messages found.");
-                return;
-            }
+            List<Message> summaries = response.getMessages();
+            if (summaries == null || summaries.isEmpty()) return List.of();
 
-            for (Message msg : messages) {
-                Message fullMsg = gmail.users().messages().get("me", msg.getId())
-                        .setFormat("metadata")
-                        .setMetadataHeaders(List.of("From", "Subject"))
-                        .execute();
-
-                String from = "";
-                String subject = "";
-
-                if (fullMsg.getPayload() != null && fullMsg.getPayload().getHeaders() != null) {
-                    for (MessagePartHeader header : fullMsg.getPayload().getHeaders()) {
-                        if ("From".equalsIgnoreCase(header.getName())) from = header.getValue();
-                        if ("Subject".equalsIgnoreCase(header.getName())) subject = header.getValue();
-                    }
+            List<EmailMessage> emails = new ArrayList<>();
+            for (Message summary : summaries) {
+                try {
+                    Message full = gmail.users().messages().get("me", summary.getId())
+                            .setFormat("full")
+                            .execute();
+                    emails.add(toEmailMessage(full));
+                } catch (Exception e) {
+                    log.warn("Skipping message {}: {}", summary.getId(), e.getMessage());
                 }
-
-                log.info("Message ID: {} | From: {} | Subject: {}", fullMsg.getId(), from, subject);
             }
+
+            log.info("Fetched {} emails from Gmail.", emails.size());
+            return emails;
+
         } catch (Exception e) {
-            log.error("Failed to fetch emails", e);
-        }
-        */
-
-        // Local testing logic using Mailpit mock
-        try {
-            log.info("Fetching recent emails from Mailpit (Local Mock)...");
-            @SuppressWarnings("unchecked")
-            Map<String, Object> response = restTemplate.getForObject(mailpitApiUrl, Map.class);
-            if (response != null && response.containsKey("messages")) {
-                @SuppressWarnings("unchecked")
-                List<Map<String, Object>> messages = (List<Map<String, Object>>) response.get("messages");
-                if (messages == null || messages.isEmpty()) {
-                    log.info("No new messages found in Mailpit.");
-                    return;
-                }
-                for (Map<String, Object> msg : messages) {
-                    String from = (String) msg.get("From");
-                    String subject = (String) msg.get("Subject");
-                    String id = (String) msg.get("ID");
-                    log.info("Mailpit Message ID: {} | From: {} | Subject: {}", id, from, subject);
-                }
-            }
-        } catch (Exception e) {
-            log.warn("Failed to fetch emails from Mailpit (is the container running?): {}", e.getMessage());
+            log.error("Failed to fetch emails from Gmail.", e);
+            return List.of();
         }
     }
 
-    public String fetchLatestEmailSubject() {
-        // TODO: Re-enable real Gmail API integration once API access is configured.
-        // To re-enable: Uncomment the block below and comment out the Mailpit mock logic.
-        /*
-        if (gmail == null) {
-            log.warn("Gmail client is null, skipping fetch.");
-            return null;
-        }
-        try {
-            ListMessagesResponse response = gmail.users().messages().list("me")
-                    .setQ("is:unread")
-                    .setMaxResults(1L)
-                    .execute();
-
-            List<Message> messages = response.getMessages();
-            if (messages == null || messages.isEmpty()) {
-                log.info("No unread messages found.");
-                return null;
-            }
-
-            Message fullMsg = gmail.users().messages().get("me", messages.get(0).getId())
-                    .setFormat("metadata")
-                    .setMetadataHeaders(List.of("Subject"))
-                    .execute();
-
-            if (fullMsg.getPayload() != null && fullMsg.getPayload().getHeaders() != null) {
-                for (MessagePartHeader header : fullMsg.getPayload().getHeaders()) {
-                    if ("Subject".equalsIgnoreCase(header.getName())) {
-                        return header.getValue();
-                    }
-                }
-            }
-        } catch (Exception e) {
-            log.error("Failed to fetch latest email subject", e);
-        }
-        return null;
-        */
-
-        // Local testing logic using Mailpit mock
-        try {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> response = restTemplate.getForObject(mailpitApiUrl + "?limit=1", Map.class);
-            if (response != null && response.containsKey("messages")) {
-                @SuppressWarnings("unchecked")
-                List<Map<String, Object>> messages = (List<Map<String, Object>>) response.get("messages");
-                if (messages != null && !messages.isEmpty()) {
-                    return (String) messages.get(0).get("Subject");
-                }
-            }
-        } catch (Exception e) {
-            log.warn("Failed to fetch latest email from Mailpit: {}", e.getMessage());
-        }
-        return null;
+    private EmailMessage toEmailMessage(Message msg) {
+        return EmailMessage.builder()
+                .id(msg.getId())
+                .from(getHeader(msg, "From"))
+                .subject(getHeader(msg, "Subject"))
+                .body(getBody(msg))
+                .build();
     }
 
-    public EmailMessage fetchLatestEmailMessage() {
-        try {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> response = restTemplate.getForObject(mailpitApiUrl + "?limit=1", Map.class);
-            if (response == null || !response.containsKey("messages")) return null;
-
-            @SuppressWarnings("unchecked")
-            List<Map<String, Object>> messages = (List<Map<String, Object>>) response.get("messages");
-            if (messages == null || messages.isEmpty()) return null;
-
-            Map<String, Object> msg = messages.get(0);
-            String id = (String) msg.get("ID");
-            String subject = (String) msg.get("Subject");
-
-            // From is an object: {"Name": "...", "Address": "..."}
-            String from = "";
-            Object fromObj = msg.get("From");
-            if (fromObj instanceof Map) {
-                @SuppressWarnings("unchecked")
-                Map<String, String> fromMap = (Map<String, String>) fromObj;
-                String name = fromMap.getOrDefault("Name", "");
-                String address = fromMap.getOrDefault("Address", "");
-                from = name.isBlank() ? address : name + " <" + address + ">";
-            } else if (fromObj instanceof String) {
-                from = (String) fromObj;
-            }
-
-            // Fetch body from detail endpoint
-            String body = fetchMessageBody(id);
-
-            return EmailMessage.builder()
-                    .id(id)
-                    .subject(subject)
-                    .from(from)
-                    .body(body)
-                    .build();
-
-        } catch (Exception e) {
-            log.warn("Failed to fetch latest email from Mailpit: {}", e.getMessage());
-            return null;
-        }
+    private String getHeader(Message msg, String name) {
+        if (msg.getPayload() == null || msg.getPayload().getHeaders() == null) return "";
+        return msg.getPayload().getHeaders().stream()
+                .filter(h -> name.equalsIgnoreCase(h.getName()))
+                .map(MessagePartHeader::getValue)
+                .findFirst().orElse("");
     }
 
-    private String fetchMessageBody(String messageId) {
-        try {
-            // Derive detail URL from mailpitApiUrl: replace /messages with /message/{id}
-            String baseUrl = mailpitApiUrl.replace("/messages", "");
-            String detailUrl = baseUrl + "/message/" + messageId;
-            @SuppressWarnings("unchecked")
-            Map<String, Object> detail = restTemplate.getForObject(detailUrl, Map.class);
-            if (detail != null && detail.containsKey("Text")) {
-                return (String) detail.get("Text");
-            }
-        } catch (Exception e) {
-            log.warn("Failed to fetch body for message {}: {}", messageId, e.getMessage());
+    private String getBody(Message msg) {
+        var payload = msg.getPayload();
+        if (payload == null || payload.getParts() != null
+                || payload.getBody() == null || payload.getBody().getData() == null) {
+            return "(body unavailable)";
         }
-        return "(body unavailable)";
+        byte[] data = com.google.api.client.util.Base64.decodeBase64(payload.getBody().getData());
+        return new String(data, StandardCharsets.UTF_8);
     }
 }

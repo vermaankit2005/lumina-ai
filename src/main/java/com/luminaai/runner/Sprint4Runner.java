@@ -5,10 +5,12 @@ import com.luminaai.domain.model.EmailMessage;
 import com.luminaai.domain.model.LLMAnalysisResult;
 import com.luminaai.entity.ActionTask;
 import com.luminaai.entity.BriefingRun;
+import com.luminaai.entity.ProcessedEmail;
 import com.luminaai.repository.ActionTaskRepository;
 import com.luminaai.repository.BriefingRunRepository;
+import com.luminaai.repository.ProcessedEmailRepository;
 import com.luminaai.service.ai.LLMService;
-import com.luminaai.service.gmail.GmailFetchService;
+import com.luminaai.service.gmail.EmailFetcher;
 import com.luminaai.service.notification.TelegramNotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,11 +27,12 @@ import java.util.List;
 @RequiredArgsConstructor
 public class Sprint4Runner implements CommandLineRunner {
 
-    private final GmailFetchService gmailFetchService;
+    private final EmailFetcher emailFetcher;
     private final LLMService llmService;
     private final TelegramNotificationService telegramNotificationService;
     private final BriefingRunRepository briefingRunRepository;
     private final ActionTaskRepository actionTaskRepository;
+    private final ProcessedEmailRepository processedEmailRepository;
 
     @Override
     public void run(String... args) {
@@ -43,37 +46,38 @@ public class Sprint4Runner implements CommandLineRunner {
         run = briefingRunRepository.save(run);
 
         try {
-            // 1. Fetch latest email
-            EmailMessage email = gmailFetchService.fetchLatestEmailMessage();
+            List<EmailMessage> emails = emailFetcher.fetchEmailsFromLast24Hours();
 
-            if (email == null) {
-                log.info("No emails found.");
+            if (emails.isEmpty()) {
+                log.info("No emails found from last 24 hours.");
                 telegramNotificationService.sendMessage("📭 No new emails to process.");
                 complete(run, 0, 0, null);
                 return;
             }
 
-            // 2. Deduplication check
-            if (actionTaskRepository.existsBySourceEmailId(email.getId())) {
-                log.info("Email already processed: {}", email.getSubject());
+            List<EmailMessage> newEmails = emails.stream()
+                    .filter(email -> !processedEmailRepository.existsByEmailId(email.getId()))
+                    .toList();
+
+            if (newEmails.isEmpty()) {
+                log.info("All {} emails already processed.", emails.size());
                 telegramNotificationService.sendMessage("✅ No new emails since last run.");
-                complete(run, 0, 0, null);
+                complete(run, emails.size(), 0, null);
                 return;
             }
 
-            // 3. Send to LLM for analysis
-            LLMAnalysisResult analysis = llmService.analyzeEmails(List.of(email));
+            log.info("Processing {} new emails out of {} total.", newEmails.size(), emails.size());
 
-            // 4. Persist extracted tasks
+            LLMAnalysisResult analysis = llmService.analyzeEmails(newEmails);
+
             List<ActionTask> savedTasks = new ArrayList<>();
             if (analysis.getTasks() != null) {
                 for (LLMAnalysisResult.TaskItem item : analysis.getTasks()) {
-
                     ActionTask task = ActionTask.builder()
                             .title(item.getTitle())
                             .description(item.getDescription())
                             .briefingRun(run)
-                            .sourceEmailId(item.getSourceEmailId() != null ? item.getSourceEmailId() : email.getId())
+                            .sourceEmailId(item.getSourceEmailId())
                             .sourceSender(item.getSourceSender())
                             .sourceSubject(item.getSourceSubject())
                             .deadlineDate(parseDate(item.getDeadlineDate()))
@@ -82,24 +86,17 @@ public class Sprint4Runner implements CommandLineRunner {
                 }
             }
 
-            // If LLM extracted no tasks but email is new, record it anyway for dedup
-            if (savedTasks.isEmpty()) {
-                ActionTask placeholder = ActionTask.builder()
-                        .title("Processed: " + email.getSubject())
-                        .briefingRun(run)
-                        .sourceEmailId(email.getId())
-                        .sourceSender(email.getFrom())
-                        .sourceSubject(email.getSubject())
-                        .build();
-                actionTaskRepository.save(placeholder);
+            for (EmailMessage email : newEmails) {
+                processedEmailRepository.save(ProcessedEmail.builder()
+                        .emailId(email.getId())
+                        .build());
             }
 
-            // 5. Format and send Telegram briefing
-            String briefing = formatBriefing(analysis, savedTasks);
+            String briefing = formatBriefing(analysis, savedTasks, newEmails.size());
             telegramNotificationService.sendMessage(briefing);
 
-            complete(run, 1, savedTasks.size(), analysis.getSummary());
-            log.info("Sprint 4 run complete. Tasks extracted: {}", savedTasks.size());
+            complete(run, newEmails.size(), savedTasks.size(), analysis.getSummary());
+            log.info("Sprint 4 run complete. Processed {} emails, extracted {} tasks.", newEmails.size(), savedTasks.size());
 
         } catch (Exception e) {
             log.error("Sprint 4 run failed", e);
@@ -119,18 +116,18 @@ public class Sprint4Runner implements CommandLineRunner {
         briefingRunRepository.save(run);
     }
 
-    private String formatBriefing(LLMAnalysisResult analysis, List<ActionTask> tasks) {
+    private String formatBriefing(LLMAnalysisResult analysis, List<ActionTask> tasks, int emailsProcessed) {
         StringBuilder sb = new StringBuilder();
         sb.append("🌅 *Lumina AI Briefing*\n");
-        sb.append("📅 ").append(LocalDate.now()).append("\n\n");
+        sb.append("📅 ").append(LocalDate.now()).append("\n");
+        sb.append("✉️ Processed ").append(emailsProcessed).append(" email(s) from last 24 hours\n\n");
         sb.append("📧 *EMAIL SUMMARY*\n");
         sb.append(analysis.getSummary() != null ? analysis.getSummary() : "No summary available.").append("\n\n");
 
         if (!tasks.isEmpty()) {
             sb.append("✅ *ACTION ITEMS* (").append(tasks.size()).append(" new)\n");
             for (ActionTask task : tasks) {
-                String emoji = "🟢";
-                sb.append(emoji).append(" ").append(task.getTitle()).append("\n");
+                sb.append("🟢 ").append(task.getTitle()).append("\n");
                 if (task.getDescription() != null) {
                     sb.append("   📌 ").append(task.getDescription()).append("\n");
                 }

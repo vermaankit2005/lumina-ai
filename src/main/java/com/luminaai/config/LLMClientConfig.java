@@ -14,8 +14,8 @@ public class LLMClientConfig {
     @Bean
     @Primary
     public ChatClient.Builder chatClientBuilder(Environment env, OpenAiChatModel openAiChatModel, OllamaChatModel ollamaChatModel) {
-        boolean isGroqProfile = env.acceptsProfiles("groq");
-        if (isGroqProfile) {
+        boolean isTestProfile = env.acceptsProfiles("test");
+        if (isTestProfile) {
             return ChatClient.builder(openAiChatModel);
         } else {
             return ChatClient.builder(ollamaChatModel);

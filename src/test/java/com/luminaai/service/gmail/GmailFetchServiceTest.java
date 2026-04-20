@@ -16,6 +16,6 @@ class GmailFetchServiceTest {
     @Test
     void fetchLatestEmailSubjectReturnsNullWhenGmailNotConfigured() {
         GmailFetchService service = new GmailFetchService(java.util.Optional.empty());
-        assertNull(service.fetchLatestEmailSubject());
+        assertNull(service.fetchEmailsFromLast24Hours());
     }
 }

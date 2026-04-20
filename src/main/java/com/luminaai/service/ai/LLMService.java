@@ -1,6 +1,5 @@
 package com.luminaai.service.ai;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.luminaai.domain.model.EmailMessage;
 import com.luminaai.domain.model.LLMAnalysisResult;
 import lombok.extern.slf4j.Slf4j;
@@ -21,13 +20,11 @@ import java.util.List;
 public class LLMService {
 
     private final ChatClient chatClient;
-    private final ObjectMapper objectMapper;
     private final String systemPrompt;
     private final String userPromptTemplate;
 
-    public LLMService(ChatClient.Builder chatClientBuilder, ObjectMapper objectMapper) throws Exception {
+    public LLMService(ChatClient.Builder chatClientBuilder) throws Exception {
         this.chatClient = chatClientBuilder.build();
-        this.objectMapper = objectMapper;
         this.systemPrompt = loadResource("prompts/email-analysis-system.txt");
         this.userPromptTemplate = loadResource("prompts/email-analysis-user.txt");
     }
@@ -42,14 +39,11 @@ public class LLMService {
             String userPrompt = buildUserPrompt(emails);
             log.info("Sending {} email(s) to LLM for analysis...", emails.size());
 
-            String response = chatClient.prompt()
+            return chatClient.prompt()
                     .system(systemPrompt)
                     .user(userPrompt)
                     .call()
-                    .content();
-
-            log.debug("LLM raw response: {}", response);
-            return objectMapper.readValue(response, LLMAnalysisResult.class);
+                    .entity(LLMAnalysisResult.class);
 
         } catch (Exception e) {
             log.error("LLM analysis failed: {}", e.getMessage(), e);

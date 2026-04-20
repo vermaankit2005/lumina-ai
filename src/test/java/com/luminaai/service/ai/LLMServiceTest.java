@@ -32,13 +32,11 @@ class LLMServiceTest {
     private ChatClient.CallResponseSpec callSpec;
 
     private LLMService llmService;
-    private ObjectMapper objectMapper;
 
     @BeforeEach
     void setUp() throws Exception {
-        objectMapper = new ObjectMapper();
         when(chatClientBuilder.build()).thenReturn(chatClient);
-        llmService = new LLMService(chatClientBuilder, objectMapper);
+        llmService = new LLMService(chatClientBuilder);
     }
 
     @Test

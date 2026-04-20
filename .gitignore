@@ -26,7 +26,7 @@ Thumbs.db
 .env
 *.key
 credentials.json
-application-groq.yml
+application-test.yml
 
 # Claude Code
 .claude/

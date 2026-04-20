@@ -12,6 +12,5 @@ import java.util.UUID;
 @Repository
 public interface ActionTaskRepository extends JpaRepository<ActionTask, Long> {
     Optional<ActionTask> findByExternalId(UUID externalId);
-    boolean existsBySourceEmailId(String sourceEmailId);
     List<ActionTask> findByStatus(TaskStatus status);
 }
