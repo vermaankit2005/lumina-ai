@@ -24,24 +24,4 @@ OPEN TASKS FROM PREVIOUS DAYS (for context — do NOT re-extract these):
 
 ---
 
-Based on the email threads above, respond with ONLY a JSON object matching this exact schema:
-
-{
-  "summary": "string (executive summary, max 250 words, plain text)",
-  "important_thread_count": integer,
-  "tasks": [
-    {
-      "title": "string (action verb + object, max 100 chars, e.g. 'Reply to Klaus re: budget approval')",
-      "description": "string (1-2 sentences of context, max 200 chars)",
-      "priority": "HIGH | MEDIUM | LOW",
-      "deadline_date": "YYYY-MM-DD | null",
-      "deadline_raw_text": "string | null (original text: 'by Friday', 'EOD tomorrow')",
-      "source_thread_id": "string (thread ID from above)",
-      "source_email_id": "string (specific message ID if deterministic, else thread ID)",
-      "source_sender": "string (Name <email>)",
-      "source_subject": "string",
-      "confidence": float (0.60–1.00)
-    }
-  ],
-  "processing_notes": "string | null (any caveats, e.g. 'Thread 3 body was truncated')"
-}
+Analyze the email threads above and respond with JSON matching the schema in your instructions.

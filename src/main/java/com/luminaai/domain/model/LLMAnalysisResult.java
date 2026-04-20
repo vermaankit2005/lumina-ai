@@ -44,6 +44,8 @@ public class LLMAnalysisResult {
         @JsonProperty("source_subject")
         private String sourceSubject;
 
+        private String assignee;
+
         private float confidence;
     }
 }

@@ -4,6 +4,7 @@ import com.luminaai.domain.model.EmailMessage;
 import com.luminaai.domain.model.LLMAnalysisResult;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StreamUtils;
@@ -41,7 +42,7 @@ public class LLMService {
 
             return chatClient.prompt()
                     .system(systemPrompt)
-                    .user(userPrompt)
+                    .messages(new UserMessage(userPrompt))
                     .call()
                     .entity(LLMAnalysisResult.class);
 

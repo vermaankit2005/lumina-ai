@@ -6,19 +6,22 @@ import org.springframework.ai.ollama.OllamaChatModel;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
-import org.springframework.core.env.Environment;
+import org.springframework.context.annotation.Profile;
 
 @Configuration
 public class LLMClientConfig {
 
     @Bean
     @Primary
-    public ChatClient.Builder chatClientBuilder(Environment env, OpenAiChatModel openAiChatModel, OllamaChatModel ollamaChatModel) {
-        boolean isTestProfile = env.acceptsProfiles("test");
-        if (isTestProfile) {
-            return ChatClient.builder(openAiChatModel);
-        } else {
-            return ChatClient.builder(ollamaChatModel);
-        }
+    @Profile("test")
+    public ChatClient.Builder testChatClientBuilder(OpenAiChatModel openAiChatModel) {
+        return ChatClient.builder(openAiChatModel);
+    }
+
+    @Bean
+    @Primary
+    @Profile("!test")
+    public ChatClient.Builder prodChatClientBuilder(OllamaChatModel ollamaChatModel) {
+        return ChatClient.builder(ollamaChatModel);
     }
 }

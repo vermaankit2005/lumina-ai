@@ -72,7 +72,9 @@ public class Sprint4Runner implements CommandLineRunner {
 
             List<ActionTask> savedTasks = new ArrayList<>();
             if (analysis.getTasks() != null) {
+
                 for (LLMAnalysisResult.TaskItem item : analysis.getTasks()) {
+
                     ActionTask task = ActionTask.builder()
                             .title(item.getTitle())
                             .description(item.getDescription())
@@ -118,6 +120,7 @@ public class Sprint4Runner implements CommandLineRunner {
 
     private String formatBriefing(LLMAnalysisResult analysis, List<ActionTask> tasks, int emailsProcessed) {
         StringBuilder sb = new StringBuilder();
+        sb.append("\n\n");
         sb.append("🌅 *Lumina AI Briefing*\n");
         sb.append("📅 ").append(LocalDate.now()).append("\n");
         sb.append("✉️ Processed ").append(emailsProcessed).append(" email(s) from last 24 hours\n\n");
@@ -126,8 +129,9 @@ public class Sprint4Runner implements CommandLineRunner {
 
         if (!tasks.isEmpty()) {
             sb.append("✅ *ACTION ITEMS* (").append(tasks.size()).append(" new)\n");
-            for (ActionTask task : tasks) {
-                sb.append("🟢 ").append(task.getTitle()).append("\n");
+            for (int i = 0; i < tasks.size(); i++) {
+                ActionTask task = tasks.get(i);
+                sb.append("\n").append(i + 1).append(". 🟢 ").append(task.getTitle()).append("\n");
                 if (task.getDescription() != null) {
                     sb.append("   📌 ").append(task.getDescription()).append("\n");
                 }
@@ -135,11 +139,11 @@ public class Sprint4Runner implements CommandLineRunner {
         } else {
             sb.append("✅ No action items extracted.\n");
         }
-
         if (analysis.getProcessingNotes() != null) {
             sb.append("\n_Note: ").append(analysis.getProcessingNotes()).append("_");
         }
 
+        sb.append("\n\n");
         return sb.toString();
     }
 
