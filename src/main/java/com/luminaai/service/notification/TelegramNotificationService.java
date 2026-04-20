@@ -1,18 +1,24 @@
 package com.luminaai.service.notification;
 
 import com.luminaai.config.TelegramBotConfig;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.luminaai.port.NotificationPort;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.bots.DefaultAbsSender;
 import org.telegram.telegrambots.bots.DefaultBotOptions;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
+/**
+ * {@link NotificationPort} implementation that delivers messages to a configured
+ * Telegram chat using the Bot API.
+ *
+ * <p>If the bot token is absent (e.g. local development without Telegram), the send
+ * is silently skipped rather than throwing, so the rest of the pipeline is unaffected.
+ */
+@Slf4j
 @Service
-public class TelegramNotificationService extends DefaultAbsSender {
-
-    private static final Logger log = LoggerFactory.getLogger(TelegramNotificationService.class);
+public class TelegramNotificationService extends DefaultAbsSender implements NotificationPort {
 
     private final TelegramBotConfig config;
 
@@ -21,19 +27,22 @@ public class TelegramNotificationService extends DefaultAbsSender {
         this.config = config;
     }
 
-    public void sendMessage(String text) {
+    @Override
+    public void send(String message) {
         if (config.getBotToken() == null || config.getBotToken().isBlank()) {
-            log.warn("Telegram bot token is not configured. Skipping message send.");
+            log.warn("Telegram bot token is not configured — skipping notification.");
             return;
         }
-        SendMessage message = new SendMessage();
-        message.setChatId(String.valueOf(config.getAllowedChatId()));
-        message.setText(text);
+
+        SendMessage request = new SendMessage();
+        request.setChatId(String.valueOf(config.getAllowedChatId()));
+        request.setText(message);
+
         try {
-            execute(message);
-            log.info("Telegram message sent to chat {}", config.getAllowedChatId());
+            execute(request);
+            log.info("Telegram message delivered to chat {}", config.getAllowedChatId());
         } catch (TelegramApiException e) {
-            log.error("Failed to send Telegram message", e);
+            log.error("Failed to deliver Telegram message", e);
         }
     }
 

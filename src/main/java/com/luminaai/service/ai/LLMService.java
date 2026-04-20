@@ -1,10 +1,11 @@
 package com.luminaai.service.ai;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.luminaai.domain.model.AnalysisResult;
 import com.luminaai.domain.model.EmailMessage;
-import com.luminaai.domain.model.LLMAnalysisResult;
+import com.luminaai.port.EmailAnalysisPort;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StreamUtils;
@@ -16,35 +17,47 @@ import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * {@link EmailAnalysisPort} implementation backed by a locally-running or remote LLM
+ * (Ollama in production, OpenAI-compatible in test).
+ *
+ * <p>Prompts are loaded from {@code classpath:prompts/} so they can be tuned without
+ * recompiling the service.
+ */
 @Slf4j
 @Service
-public class LLMService {
+public class LLMService implements EmailAnalysisPort {
 
     private final ChatClient chatClient;
+    private final ObjectMapper objectMapper;
     private final String systemPrompt;
     private final String userPromptTemplate;
 
     public LLMService(ChatClient.Builder chatClientBuilder) throws Exception {
         this.chatClient = chatClientBuilder.build();
+        this.objectMapper = new ObjectMapper();
         this.systemPrompt = loadResource("prompts/email-analysis-system.txt");
         this.userPromptTemplate = loadResource("prompts/email-analysis-user.txt");
     }
 
-    public LLMAnalysisResult analyzeEmails(List<EmailMessage> emails) {
+    @Override
+    public AnalysisResult analyze(List<EmailMessage> emails) {
         if (emails == null || emails.isEmpty()) {
-            log.info("No emails to analyze.");
-            return emptyResult("No emails to analyze.");
+            log.info("No emails to analyse — returning empty result.");
+            return emptyResult("No emails to analyse.");
         }
 
         try {
             String userPrompt = buildUserPrompt(emails);
             log.info("Sending {} email(s) to LLM for analysis...", emails.size());
 
-            return chatClient.prompt()
+            String rawJson = chatClient.prompt()
                     .system(systemPrompt)
-                    .messages(new UserMessage(userPrompt))
+                    .user(userPrompt)
                     .call()
-                    .entity(LLMAnalysisResult.class);
+                    .content();
+
+            return objectMapper.readValue(rawJson, AnalysisResult.class);
 
         } catch (Exception e) {
             log.error("LLM analysis failed: {}", e.getMessage(), e);
@@ -52,14 +65,16 @@ public class LLMService {
         }
     }
 
+    // ── Private helpers ───────────────────────────────────────────────────────
+
     private String buildUserPrompt(List<EmailMessage> emails) {
         LocalDate today = LocalDate.now();
         LocalDateTime since = LocalDateTime.now().minusHours(24);
 
-        StringBuilder threadsBuilder = new StringBuilder();
+        StringBuilder threads = new StringBuilder();
         for (int i = 0; i < emails.size(); i++) {
             EmailMessage email = emails.get(i);
-            threadsBuilder.append("THREAD [").append(i + 1).append("]:\n")
+            threads.append("THREAD [").append(i + 1).append("]:\n")
                     .append("  Thread-ID: ").append(email.getId()).append("\n")
                     .append("  Subject: ").append(email.getSubject()).append("\n")
                     .append("  Participants: From ").append(email.getFrom()).append("\n")
@@ -74,7 +89,7 @@ public class LLMService {
                 .replace("{today_day_of_week}", today.getDayOfWeek().toString())
                 .replace("{since_datetime}", since.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")))
                 .replace("{thread_count}", String.valueOf(emails.size()))
-                .replace("{email_threads}", threadsBuilder.toString())
+                .replace("{email_threads}", threads.toString())
                 .replace("{open_tasks_context}", "None");
     }
 
@@ -83,8 +98,8 @@ public class LLMService {
         return text.length() <= maxLength ? text : text.substring(0, maxLength) + "... [truncated]";
     }
 
-    private LLMAnalysisResult emptyResult(String note) {
-        LLMAnalysisResult result = new LLMAnalysisResult();
+    private AnalysisResult emptyResult(String note) {
+        AnalysisResult result = new AnalysisResult();
         result.setSummary("No significant emails to report.");
         result.setTasks(Collections.emptyList());
         result.setProcessingNotes(note);

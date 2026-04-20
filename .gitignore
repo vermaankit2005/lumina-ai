@@ -31,3 +31,4 @@ application-test.yml
 # Claude Code
 .claude/
 *.md
+!README.md

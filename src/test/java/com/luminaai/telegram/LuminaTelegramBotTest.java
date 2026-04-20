@@ -1,7 +1,7 @@
 package com.luminaai.telegram;
 
 import com.luminaai.config.TelegramBotConfig;
-import com.luminaai.service.notification.TelegramNotificationService;
+import com.luminaai.port.NotificationPort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,7 +21,7 @@ class LuminaTelegramBotTest {
     private TelegramBotConfig config;
 
     @Mock
-    private TelegramNotificationService notificationService;
+    private NotificationPort notificationPort;
 
     private LuminaTelegramBot bot;
 
@@ -30,28 +30,27 @@ class LuminaTelegramBotTest {
         lenient().when(config.getBotToken()).thenReturn("test-token");
         lenient().when(config.getBotUsername()).thenReturn("TestBot");
         lenient().when(config.getAllowedChatId()).thenReturn(12345L);
-        bot = new LuminaTelegramBot(config, notificationService);
+        bot = new LuminaTelegramBot(config, notificationPort);
     }
 
     @Test
     void echoesMessageFromAllowedChat() {
         Update update = buildUpdate(12345L, "hello world");
         bot.onUpdateReceived(update);
-        verify(notificationService).sendMessage("hello world");
+        verify(notificationPort).send("hello world");
     }
 
     @Test
-    void ignoresMessageFromUnknownChat() {
+    void ignoresMessageFromUnauthorisedChat() {
         Update update = buildUpdate(99999L, "hello world");
         bot.onUpdateReceived(update);
-        verifyNoInteractions(notificationService);
+        verifyNoInteractions(notificationPort);
     }
 
     @Test
     void ignoresUpdateWithNoMessage() {
-        Update update = new Update();
-        bot.onUpdateReceived(update);
-        verifyNoInteractions(notificationService);
+        bot.onUpdateReceived(new Update());
+        verifyNoInteractions(notificationPort);
     }
 
     private Update buildUpdate(long chatId, String text) {

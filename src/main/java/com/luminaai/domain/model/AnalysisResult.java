@@ -3,11 +3,16 @@ package com.luminaai.domain.model;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
+
 import java.util.List;
 
+/**
+ * Structured result produced by the AI analysis of a batch of emails.
+ * Contains an executive summary and a list of extracted action items.
+ */
 @Data
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class LLMAnalysisResult {
+public class AnalysisResult {
 
     private String summary;
 

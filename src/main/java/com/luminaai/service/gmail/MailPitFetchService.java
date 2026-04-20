@@ -1,8 +1,8 @@
 package com.luminaai.service.gmail;
 
 import com.luminaai.domain.model.EmailMessage;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.luminaai.port.EmailFetcherPort;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
@@ -13,12 +13,19 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Test-profile {@link EmailFetcherPort} implementation that reads messages from a
+ * locally-running <a href="https://mailpit.axllent.org/">Mailpit</a> SMTP stub via
+ * its REST API. Mailpit receives emails sent by the test script in {@code docs/}.
+ *
+ * <p>Active only on the {@code test} Spring profile.
+ */
+@Slf4j
 @Service
 @Profile("test")
-public class MailPitFetchService implements EmailFetcher {
+public class MailPitFetchService implements EmailFetcherPort {
 
-    private static final Logger log = LoggerFactory.getLogger(MailPitFetchService.class);
-    private static final long TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000L;
+    private static final long TWENTY_FOUR_HOURS_MS = 24L * 60 * 60 * 1000;
 
     private final RestTemplate restTemplate = new RestTemplate();
 
@@ -35,27 +42,29 @@ public class MailPitFetchService implements EmailFetcher {
             List<Map<String, Object>> messages = (List<Map<String, Object>>) response.get("messages");
             if (messages == null || messages.isEmpty()) return List.of();
 
-            long cutoff = System.currentTimeMillis() - TWENTY_FOUR_HOURS_MS;
+            long cutoffMs = System.currentTimeMillis() - TWENTY_FOUR_HOURS_MS;
             List<EmailMessage> emails = new ArrayList<>();
 
             for (Map<String, Object> msg : messages) {
-                if (isOlderThan(msg, cutoff)) break; // Mailpit returns newest-first
+                if (isOlderThan(msg, cutoffMs)) break; // Mailpit returns newest-first
                 emails.add(toEmailMessage(msg));
             }
 
-            log.info("Fetched {} emails from MailPit.", emails.size());
+            log.info("Fetched {} email(s) from Mailpit.", emails.size());
             return emails;
 
         } catch (Exception e) {
-            log.warn("Failed to fetch emails from MailPit: {}", e.getMessage());
+            log.warn("Failed to fetch emails from Mailpit: {}", e.getMessage());
             return List.of();
         }
     }
 
-    private boolean isOlderThan(Map<String, Object> msg, long cutoff) {
+    // ── Private helpers ───────────────────────────────────────────────────────
+
+    private boolean isOlderThan(Map<String, Object> msg, long cutoffMs) {
         Object created = msg.get("Created");
-        if (!(created instanceof String)) return false;
-        return Instant.parse((String) created).toEpochMilli() < cutoff;
+        if (!(created instanceof String createdStr)) return false;
+        return Instant.parse(createdStr).toEpochMilli() < cutoffMs;
     }
 
     @SuppressWarnings("unchecked")
