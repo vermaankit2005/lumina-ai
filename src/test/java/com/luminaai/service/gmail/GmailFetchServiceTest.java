@@ -3,7 +3,7 @@ package com.luminaai.service.gmail;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class GmailFetchServiceTest {
 
@@ -16,6 +16,6 @@ class GmailFetchServiceTest {
     @Test
     void fetchLatestEmailSubjectReturnsNullWhenGmailNotConfigured() {
         GmailFetchService service = new GmailFetchService(java.util.Optional.empty());
-        assertNull(service.fetchEmailsFromLast24Hours());
+        assertTrue(service.fetchEmailsFromLast24Hours().isEmpty());
     }
 }
