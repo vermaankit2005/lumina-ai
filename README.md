@@ -1,72 +1,76 @@
-# Lumina AI — Personal Email Briefing Agent
+# Lumina AI — Personal Productivity Agent
 
-Lumina AI is a Spring Boot application that runs once a day to give you an AI-powered briefing of your inbox. It fetches emails from the last 24 hours, sends them to a local LLM (Ollama / Mistral), extracts structured action items, persists them to PostgreSQL, and delivers a formatted summary to your Telegram chat.
+Lumina AI is a Spring Boot application that automates daily email triage. It fetches unread emails from the last 24 hours, sends them through an LLM for analysis, extracts structured action items, persists them to PostgreSQL, and delivers a formatted briefing to Telegram.
+
+The motivation was straightforward: I wanted a way to get a clear, prioritised summary of my inbox every morning without opening a browser. A single Telegram message is enough.
 
 ```
 Gmail ──▶ LLM Analysis ──▶ Action Tasks (PostgreSQL)
-                     │
-                     └──▶ Telegram Briefing
+                    │
+                    └──▶ Telegram Briefing
 ```
+
+This is also a deliberate learning project. Each sprint introduces one real capability and one architectural pattern — the goal being something I use daily and something I can walk through in depth technically.
 
 ---
 
 ## Features
 
-- **AI-powered summarisation** — prompts a locally-running LLM to produce an executive summary and a prioritised task list from raw email threads
-- **Deduplication** — tracks processed email IDs so re-runs never double-count messages
-- **Persistent audit log** — every briefing run and extracted task is stored in PostgreSQL for history and querying
-- **Telegram delivery** — sends the briefing as a formatted Markdown message to your personal chat
-- **Pluggable adapters** — email fetching and notification are behind port interfaces; swap providers without touching business logic
-- **Local testing** — a Mailpit SMTP stub + `test` Spring profile replaces Gmail and OpenAI in development
+- Fetches emails from Gmail via OAuth 2.0 (read-only scope)
+- Analyses email content with a locally-running LLM (Ollama/Mistral) or a hosted endpoint (Groq/OpenAI-compatible)
+- Extracts an executive summary and a prioritised list of action items per email
+- Persists every briefing run and extracted task to PostgreSQL for history and querying
+- Deduplicates across runs — re-running never double-counts processed emails
+- Delivers the briefing as a formatted Markdown message to Telegram
+- Supports a local test profile using Mailpit (SMTP stub) — no real credentials needed during development
 
 ---
 
 ## Architecture
 
+The application is structured as a **modular monolith** using a **Ports & Adapters** layout. The core briefing pipeline operates against interfaces only; infrastructure adapters (Gmail, Mailpit, Ollama, Telegram) are injected and swappable.
+
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                    DailyBriefingRunner                  │  ← Spring CommandLineRunner
 └────────────────────────┬────────────────────────────────┘
-                         │ calls
+                         │
 ┌────────────────────────▼────────────────────────────────┐
-│                  DailyBriefingService                    │  ← BriefingService interface
+│                  DailyBriefingService                    │
 │                                                          │
-│  ┌──────────────────┐  ┌────────────────┐               │
-│  │ EmailFetcherPort │  │ EmailAnalysis  │               │
-│  │ (interface)      │  │ Port           │               │
-│  └───────┬──────────┘  └───────┬────────┘               │
-│          │                     │                         │
-│  ┌───────▼──────┐     ┌────────▼──────────┐             │
-│  │GmailFetch    │     │ LLMService         │             │
-│  │Service (!test│     │ (Ollama/OpenAI)    │             │
+│  ┌──────────────────┐  ┌───────────────────┐            │
+│  │ EmailFetcherPort │  │ EmailAnalysisPort  │            │
+│  └───────┬──────────┘  └─────────┬─────────┘            │
+│          │                       │                       │
+│  ┌───────▼──────┐     ┌──────────▼────────┐             │
+│  │GmailFetch    │     │    LLMService      │             │
+│  │Service       │     │ (Ollama / Groq)    │             │
 │  │MailPitFetch  │     └────────────────────┘             │
 │  │Service (test)│                                        │
-│  └──────────────┘      ┌──────────────────┐             │
-│                         │ NotificationPort │             │
-│                         └────────┬─────────┘             │
-│                                  │                        │
-│                         ┌────────▼─────────┐             │
-│                         │TelegramNotification│            │
-│                         │Service            │             │
-│                         └───────────────────┘             │
+│  └──────────────┘     ┌──────────────────┐              │
+│                        │ NotificationPort │              │
+│                        └────────┬─────────┘              │
+│                                 │                         │
+│                        ┌────────▼──────────┐             │
+│                        │TelegramNotification│             │
+│                        │Service             │             │
+│                        └────────────────────┘             │
 └─────────────────────────────────────────────────────────┘
-         │                           │
-  ┌──────▼──────┐           ┌────────▼──────┐
-  │ PostgreSQL  │           │   Telegram    │
-  │ (JPA / Fly- │           │   Bot API     │
-  │  way)       │           └───────────────┘
-  └─────────────┘
+         │                            │
+  ┌──────▼──────┐            ┌────────▼──────┐
+  │ PostgreSQL  │            │   Telegram    │
+  │ (JPA/Flyway)│            │   Bot API     │
+  └─────────────┘            └───────────────┘
 ```
 
-### Key design decisions
+**Design decisions:**
 
 | Pattern | Where used |
 |---|---|
-| **Ports & Adapters** | `EmailFetcherPort`, `NotificationPort`, `EmailAnalysisPort` decouple business logic from infrastructure |
-| **Strategy** | Gmail vs. Mailpit email fetching swapped via Spring `@Profile` |
-| **Template Method** | `DailyBriefingService` defines the fixed briefing pipeline; each port can be substituted independently |
-| **Builder** | Lombok `@Builder` on all JPA entities for safe, readable construction |
-| **Repository** | Spring Data JPA repositories encapsulate all DB access |
+| Ports & Adapters | `EmailFetcherPort`, `NotificationPort`, `EmailAnalysisPort` decouple business logic from infrastructure |
+| Strategy | Gmail vs. Mailpit adapters swapped via Spring `@Profile` |
+| Repository | Spring Data JPA repositories encapsulate all database access |
+| Builder | Lombok `@Builder` on all JPA entities for safe, readable construction |
 
 ---
 
@@ -75,9 +79,9 @@ Gmail ──▶ LLM Analysis ──▶ Action Tasks (PostgreSQL)
 | Layer | Technology |
 |---|---|
 | Runtime | Java 21, Spring Boot 3.3 |
-| AI | Spring AI · Ollama (prod) · OpenAI-compatible (test) |
+| AI | Spring AI · Ollama (production) · OpenAI-compatible endpoint (test profile) |
 | Email | Gmail API v1 (OAuth 2.0) · Mailpit (local SMTP stub) |
-| Messaging | Telegram Bot API (TelegramBots 6.9) |
+| Messaging | Telegram Bot API |
 | Database | PostgreSQL 16 · Spring Data JPA · Flyway |
 | Build | Gradle 8 (Kotlin DSL) |
 
@@ -86,28 +90,29 @@ Gmail ──▶ LLM Analysis ──▶ Action Tasks (PostgreSQL)
 ## Prerequisites
 
 - Java 21+
-- Docker & Docker Compose (for PostgreSQL + Mailpit)
-- [Ollama](https://ollama.com/) with the `mistral` model pulled locally — **or** a Groq/OpenAI API key (test profile)
-- A Gmail account with a Google Cloud project (for production use)
+- Docker & Docker Compose (for PostgreSQL and Mailpit)
+- [Ollama](https://ollama.com/) with the `mistral` model pulled — or a Groq/OpenAI API key for the test profile
+- A Gmail account with a Google Cloud project configured for OAuth 2.0
 - A Telegram bot token and your personal chat ID
 
 ---
 
 ## Getting Started
 
-### 1. Clone and configure environment
+### 1. Clone and configure
 
 ```bash
 git clone https://github.com/vermaankit2005/lumina-ai.git
 cd lumina-ai
 cp .env.example .env
-# Edit .env with your values (see Configuration section below)
+# Fill in the required values — see the Configuration section below
 ```
 
 ### 2. Start infrastructure
 
 ```bash
-docker compose up -d   # starts PostgreSQL (port 5432) and Mailpit (port 8025)
+docker compose up -d
+# Starts PostgreSQL on port 5432 and Mailpit on port 8025
 ```
 
 ### 3. Pull the LLM model
@@ -122,82 +127,46 @@ ollama pull mistral
 ./gradlew bootRun
 ```
 
-The application starts, runs the daily briefing pipeline, and exits. Check your Telegram for the briefing message.
+The application starts, executes the briefing pipeline, delivers the Telegram message, and exits.
 
 ---
 
-## Gmail Integration
+## Gmail Integration (one-time setup)
 
-Lumina uses OAuth 2.0 to access Gmail with read-only scope. Follow these steps once:
+Lumina uses OAuth 2.0 with read-only Gmail scope. This is configured once and tokens are stored locally for subsequent runs.
 
-### Step 1 — Create a Google Cloud project
-
-1. Go to [console.cloud.google.com](https://console.cloud.google.com)
-2. Create a new project (e.g. `lumina-ai`)
-3. Enable the **Gmail API**: *APIs & Services → Enable APIs → Gmail API → Enable*
-
-### Step 2 — Create OAuth 2.0 credentials
-
-1. Go to *APIs & Services → Credentials → Create Credentials → OAuth client ID*
-2. Choose **Desktop application** as the application type
-3. Download the generated `credentials.json` file
-
-### Step 3 — Configure the path
-
-Place `credentials.json` somewhere on your machine and set the path in `.env`:
-
-```env
-GMAIL_CREDENTIALS_FILE_PATH=/path/to/credentials.json
-```
-
-### Step 4 — Authorise on first run
-
-On the first run, a browser window opens automatically asking you to sign in and grant Lumina read-only Gmail access. After approval, a `tokens/` directory is created next to the credentials file. Subsequent runs reuse the stored token without opening a browser.
-
-> **Tip:** If the browser window does not open, check the console — the authorisation URL is printed there.
+1. Create a Google Cloud project at [console.cloud.google.com](https://console.cloud.google.com)
+2. Enable the Gmail API: *APIs & Services → Enable APIs → Gmail API → Enable*
+3. Create credentials: *Credentials → Create Credentials → OAuth client ID → Desktop application*
+4. Download the `credentials.json` file and place it somewhere on your machine
+5. Set `GMAIL_CREDENTIALS_FILE_PATH` in `.env` to that path
+6. On the first run, a browser window opens for authorisation. After approval, a `tokens/` directory is created next to the credentials file and reused automatically on subsequent runs.
 
 ---
 
-## Telegram Integration
+## Telegram Integration (one-time setup)
 
-### Step 1 — Create a bot
-
-1. Open Telegram and start a chat with **[@BotFather](https://t.me/BotFather)**
-2. Send `/newbot` and follow the prompts to choose a name and username
-3. Copy the **bot token** shown at the end (format: `123456789:ABCdef...`)
-
-### Step 2 — Find your chat ID
-
-1. Send any message to your new bot
-2. Open this URL in a browser (replace `<TOKEN>` with your token):
-   ```
-   https://api.telegram.org/bot<TOKEN>/getUpdates
-   ```
-3. In the JSON response, find `"chat": { "id": 123456789 }` — that number is your chat ID
-
-### Step 3 — Configure
-
-```env
-TELEGRAM_BOT_TOKEN=123456789:ABCdef...
-TELEGRAM_BOT_USERNAME=your_bot_username
-TELEGRAM_ALLOWED_CHAT_ID=123456789
-```
+1. Open Telegram and start a chat with [@BotFather](https://t.me/BotFather)
+2. Send `/newbot` and follow the prompts to create a bot
+3. Copy the bot token provided at the end (`123456789:ABCdef...`)
+4. Send any message to your new bot, then open `https://api.telegram.org/bot<TOKEN>/getUpdates`
+5. Find `"chat": { "id": ... }` in the JSON response — that is your chat ID
 
 ---
 
 ## Local Development (Test Profile)
 
-For development without real Gmail or Telegram credentials:
+The test profile replaces Gmail with Mailpit and uses a Groq/OpenAI-compatible endpoint instead of a local Ollama install.
 
 ```bash
-# Start Mailpit SMTP stub
+# Start Mailpit
 docker compose up mailpit -d
 
-# Send some test emails
+# Seed with test emails
 bash docs/send-test-emails.sh
 
-# Run with the test profile (uses Mailpit + OpenAI-compatible LLM)
-SPRING_PROFILES_ACTIVE=test GROQ_API_KEY=<your-groq-key> ./gradlew bootRun
+# Run with the test profile
+SPRING_PROFILES_ACTIVE=test GROQ_API_KEY=<your-key> ./gradlew bootRun
 ```
 
 Mailpit's web UI is available at [http://localhost:8025](http://localhost:8025).
@@ -206,21 +175,21 @@ Mailpit's web UI is available at [http://localhost:8025](http://localhost:8025).
 
 ## Configuration Reference
 
-All sensitive values are read from environment variables. Copy `.env.example` to `.env` and fill in your values.
+Copy `.env.example` to `.env` and set the required values.
 
-| Variable | Description | Default |
+| Variable | Default | Required |
 |---|---|---|
-| `POSTGRES_HOST` | PostgreSQL hostname | `localhost` |
-| `POSTGRES_DB` | Database name | `luminaai` |
-| `POSTGRES_USER` | Database user | `lumina` |
-| `POSTGRES_PASSWORD` | Database password | *(required)* |
-| `GMAIL_CREDENTIALS_FILE_PATH` | Path to `credentials.json` | `credentials.json` |
-| `TELEGRAM_BOT_TOKEN` | Bot token from BotFather | *(required)* |
-| `TELEGRAM_BOT_USERNAME` | Bot username | `lumina_my_bot` |
-| `TELEGRAM_ALLOWED_CHAT_ID` | Your personal Telegram chat ID | *(required)* |
-| `OLLAMA_BASE_URL` | Ollama API base URL | `http://localhost:11434` |
-| `OLLAMA_MODEL` | Model name to use | `mistral` |
-| `GROQ_API_KEY` | API key for OpenAI-compatible endpoint (test profile) | `not-used` |
+| `POSTGRES_HOST` | `localhost` | |
+| `POSTGRES_DB` | `luminaai` | |
+| `POSTGRES_USER` | `lumina` | |
+| `POSTGRES_PASSWORD` | — | Yes |
+| `GMAIL_CREDENTIALS_FILE_PATH` | `credentials.json` | |
+| `TELEGRAM_BOT_TOKEN` | — | Yes |
+| `TELEGRAM_BOT_USERNAME` | `lumina_my_bot` | |
+| `TELEGRAM_ALLOWED_CHAT_ID` | — | Yes |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | |
+| `OLLAMA_MODEL` | `mistral` | |
+| `GROQ_API_KEY` | `not-used` | Test profile only |
 
 ---
 
@@ -230,7 +199,7 @@ All sensitive values are read from environment variables. Copy `.env.example` to
 ./gradlew test
 ```
 
-Tests use an **H2 in-memory database** and the `test` Spring profile. No external services (Telegram, Gmail, Ollama) are required.
+Tests use an H2 in-memory database and the `test` Spring profile. No external services are required.
 
 ---
 
@@ -238,7 +207,7 @@ Tests use an **H2 in-memory database** and the `test` Spring profile. No externa
 
 ```
 src/main/java/com/luminaai/
-├── config/            # Spring configuration (Gmail OAuth, LLM client, Telegram)
+├── config/            # Gmail OAuth, LLM client, Telegram configuration
 ├── domain/
 │   ├── enums/         # RunStatus, TaskPriority, TaskStatus
 │   ├── exception/     # LuminaException hierarchy
@@ -249,12 +218,29 @@ src/main/java/com/luminaai/
 ├── runner/            # DailyBriefingRunner (CommandLineRunner entry point)
 ├── service/
 │   ├── ai/            # LLMService — EmailAnalysisPort implementation
-│   ├── briefing/      # BriefingService, DailyBriefingService, BriefingFormatter
+│   ├── briefing/      # DailyBriefingService, BriefingFormatter
 │   ├── gmail/         # GmailFetchService, MailPitFetchService
 │   └── notification/  # TelegramNotificationService
-└── telegram/          # LuminaTelegramBot (inbound message handling)
+└── telegram/          # LuminaTelegramBot (inbound command handling)
 
 src/main/resources/
 ├── db/migration/      # Flyway SQL migrations
-└── prompts/           # LLM system and user prompt templates
+└── prompts/           # LLM prompt templates
 ```
+
+---
+
+## Roadmap
+
+The project is built incrementally in sprints, each targeting a specific capability:
+
+| Sprint | Focus | Status |
+|---|---|---|
+| Sprint 1 | Gmail OAuth2 integration | ✅ Done |
+| Sprint 2 | Telegram bot + echo | ✅ Done |
+| Sprint 3 | PostgreSQL persistence + Flyway | ✅ Done |
+| Sprint 4 | LLM integration | ⚠️ Partial — batch email processing pending |
+| Sprint 5 | Test quality + architecture polish | Planned |
+| Sprint 6 | Scheduled job + Telegram commands (`/briefing`, `/tasks`, `done #N`) | Planned |
+| Sprint 7 | Production hardening (retry, startup validation, encrypted token storage) | Planned |
+| Sprint 8 | REST API + OpenAPI/Swagger | Planned |
