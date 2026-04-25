@@ -1,0 +1,92 @@
+package com.luminaai.telegram;
+
+import com.luminaai.domain.enums.TaskPriority;
+import com.luminaai.domain.enums.TaskStatus;
+import com.luminaai.entity.ActionTask;
+import com.luminaai.port.NotificationPort;
+import com.luminaai.repository.ActionTaskRepository;
+import com.luminaai.service.briefing.BriefingService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class TelegramCommandHandler {
+
+    private final BriefingService briefingService;
+    private final ActionTaskRepository taskRepository;
+    private final NotificationPort notificationPort;
+
+    public void handle(ParsedCommand command, String chatId) {
+        switch (command.type()) {
+            case BRIEFING -> runBriefing();
+            case TASKS -> sendTaskList();
+            case DONE -> markDone(command.taskId());
+            case UNKNOWN -> notificationPort.send(helpMessage());
+        }
+    }
+
+    private void runBriefing() {
+        log.info("Manual briefing triggered via Telegram.");
+        briefingService.runDailyBriefing();
+    }
+
+    private void sendTaskList() {
+        List<ActionTask> open = taskRepository.findByStatus(TaskStatus.OPEN);
+        if (open.isEmpty()) {
+            notificationPort.send("No open tasks.");
+            return;
+        }
+
+        StringBuilder sb = new StringBuilder("*Open Tasks*\n\n");
+        for (ActionTask task : open) {
+            sb.append("#").append(task.getId())
+              .append(" ").append(priorityEmoji(task.getPriority()))
+              .append(" ").append(task.getTitle()).append("\n");
+        }
+        notificationPort.send(sb.toString().stripTrailing());
+    }
+
+    private void markDone(Optional<Integer> taskId) {
+        if (taskId.isEmpty()) {
+            notificationPort.send("Usage: done #N  (e.g. done #2)");
+            return;
+        }
+
+        long id = taskId.get().longValue();
+        Optional<ActionTask> found = taskRepository.findById(id);
+        if (found.isEmpty()) {
+            notificationPort.send("Task #" + id + " not found.");
+            return;
+        }
+
+        ActionTask task = found.get();
+        task.setStatus(TaskStatus.DONE);
+        task.setCompletedAt(LocalDateTime.now());
+        taskRepository.save(task);
+        log.info("Task #{} marked done.", id);
+        notificationPort.send("✅ Task #" + id + " marked done.");
+    }
+
+    private String priorityEmoji(TaskPriority priority) {
+        return switch (priority) {
+            case HIGH -> "🔴";
+            case MEDIUM -> "🟡";
+            case LOW -> "🟢";
+        };
+    }
+
+    private String helpMessage() {
+        return """
+                Lumina AI — available commands:
+                /briefing — run today's email briefing
+                /tasks — list open action items
+                done #N — mark task N as done""";
+    }
+}

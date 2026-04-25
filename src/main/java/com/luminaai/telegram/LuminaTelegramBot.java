@@ -1,30 +1,26 @@
 package com.luminaai.telegram;
 
 import com.luminaai.config.TelegramBotConfig;
-import com.luminaai.port.NotificationPort;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.objects.Update;
 
-/**
- * Telegram long-polling bot that receives inbound messages and echoes them back
- * via the {@link NotificationPort}.
- *
- * <p>Messages originating from any chat other than the configured
- * {@code lumina.telegram.allowed-chat-id} are silently ignored.
- */
 @Slf4j
 @Component
 public class LuminaTelegramBot extends TelegramLongPollingBot {
 
     private final TelegramBotConfig config;
-    private final NotificationPort notificationPort;
+    private final CommandParser commandParser;
+    private final TelegramCommandHandler commandHandler;
 
-    public LuminaTelegramBot(TelegramBotConfig config, NotificationPort notificationPort) {
+    public LuminaTelegramBot(TelegramBotConfig config,
+                             CommandParser commandParser,
+                             TelegramCommandHandler commandHandler) {
         super(config.getBotToken());
         this.config = config;
-        this.notificationPort = notificationPort;
+        this.commandParser = commandParser;
+        this.commandHandler = commandHandler;
     }
 
     @Override
@@ -34,7 +30,7 @@ public class LuminaTelegramBot extends TelegramLongPollingBot {
 
     @Override
     public void onUpdateReceived(Update update) {
-        if (update.getMessage() == null || update.getMessage().getText() == null) {
+        if (!update.hasMessage() || !update.getMessage().hasText()) {
             return;
         }
 
@@ -46,6 +42,7 @@ public class LuminaTelegramBot extends TelegramLongPollingBot {
 
         String text = update.getMessage().getText();
         log.info("Received message from chat {}: {}", chatId, text);
-        notificationPort.send(text);
+        ParsedCommand command = commandParser.parse(text);
+        commandHandler.handle(command, String.valueOf(chatId));
     }
 }

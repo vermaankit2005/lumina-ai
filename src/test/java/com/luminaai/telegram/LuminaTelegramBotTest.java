@@ -1,7 +1,6 @@
 package com.luminaai.telegram;
 
 import com.luminaai.config.TelegramBotConfig;
-import com.luminaai.port.NotificationPort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -12,16 +11,16 @@ import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.User;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class LuminaTelegramBotTest {
 
-    @Mock
-    private TelegramBotConfig config;
-
-    @Mock
-    private NotificationPort notificationPort;
+    @Mock private TelegramBotConfig config;
+    @Mock private CommandParser commandParser;
+    @Mock private TelegramCommandHandler commandHandler;
 
     private LuminaTelegramBot bot;
 
@@ -30,27 +29,47 @@ class LuminaTelegramBotTest {
         lenient().when(config.getBotToken()).thenReturn("test-token");
         lenient().when(config.getBotUsername()).thenReturn("TestBot");
         lenient().when(config.getAllowedChatId()).thenReturn(12345L);
-        bot = new LuminaTelegramBot(config, notificationPort);
+        bot = new LuminaTelegramBot(config, commandParser, commandHandler);
     }
 
     @Test
-    void echoesMessageFromAllowedChat() {
-        Update update = buildUpdate(12345L, "hello world");
+    void routesMessageFromAllowedChatToCommandHandler() {
+        ParsedCommand parsed = ParsedCommand.of(Command.BRIEFING);
+        when(commandParser.parse("/briefing")).thenReturn(parsed);
+
+        Update update = buildUpdate(12345L, "/briefing");
         bot.onUpdateReceived(update);
-        verify(notificationPort).send("hello world");
+
+        verify(commandParser).parse("/briefing");
+        verify(commandHandler).handle(eq(parsed), eq("12345"));
     }
 
     @Test
     void ignoresMessageFromUnauthorisedChat() {
-        Update update = buildUpdate(99999L, "hello world");
+        Update update = buildUpdate(99999L, "/briefing");
         bot.onUpdateReceived(update);
-        verifyNoInteractions(notificationPort);
+
+        verifyNoInteractions(commandParser, commandHandler);
     }
 
     @Test
     void ignoresUpdateWithNoMessage() {
         bot.onUpdateReceived(new Update());
-        verifyNoInteractions(notificationPort);
+        verifyNoInteractions(commandParser, commandHandler);
+    }
+
+    @Test
+    void ignoresUpdateWithNoText() {
+        Update update = new Update();
+        Message message = new Message();
+        Chat chat = new Chat();
+        chat.setId(12345L);
+        chat.setType("private");
+        message.setChat(chat);
+        update.setMessage(message);
+
+        bot.onUpdateReceived(update);
+        verifyNoInteractions(commandParser, commandHandler);
     }
 
     private Update buildUpdate(long chatId, String text) {
