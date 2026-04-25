@@ -1,6 +1,7 @@
 package com.luminaai.service.notification;
 
 import com.luminaai.config.TelegramBotConfig;
+import com.luminaai.domain.exception.NotificationException;
 import com.luminaai.port.NotificationPort;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -37,12 +38,14 @@ public class TelegramNotificationService extends DefaultAbsSender implements Not
         SendMessage request = new SendMessage();
         request.setChatId(String.valueOf(config.getAllowedChatId()));
         request.setText(message);
+        request.setParseMode("Markdown");
 
         try {
             execute(request);
             log.info("Telegram message delivered to chat {}", config.getAllowedChatId());
         } catch (TelegramApiException e) {
             log.error("Failed to deliver Telegram message", e);
+            throw new NotificationException("Telegram delivery failed", e);
         }
     }
 

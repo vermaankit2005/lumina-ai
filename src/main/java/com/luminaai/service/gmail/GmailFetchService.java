@@ -2,6 +2,7 @@ package com.luminaai.service.gmail;
 
 import com.google.api.services.gmail.Gmail;
 import com.google.api.services.gmail.model.Message;
+import com.google.api.services.gmail.model.MessagePart;
 import com.google.api.services.gmail.model.MessagePartHeader;
 import com.luminaai.domain.model.EmailMessage;
 import com.luminaai.port.EmailFetcherPort;
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Service;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Production {@link EmailFetcherPort} implementation that reads messages from Gmail
@@ -93,14 +95,32 @@ public class GmailFetchService implements EmailFetcherPort {
     }
 
     private String getBody(Message msg) {
-        var payload = msg.getPayload();
-        if (payload == null
-                || payload.getParts() != null
-                || payload.getBody() == null
-                || payload.getBody().getData() == null) {
-            return "(body unavailable)";
+        if (msg.getPayload() == null) return "(body unavailable)";
+
+        return findPart(msg.getPayload(), "text/plain")
+                .or(() -> findPart(msg.getPayload(), "text/html").map(GmailFetchService::stripHtml))
+                .orElse("(body unavailable)");
+    }
+
+    private Optional<String> findPart(MessagePart part, String mimeType) {
+        if (mimeType.equalsIgnoreCase(part.getMimeType())
+                && part.getBody() != null
+                && part.getBody().getData() != null) {
+            return Optional.of(decode(part.getBody().getData()));
         }
-        byte[] data = com.google.api.client.util.Base64.decodeBase64(payload.getBody().getData());
-        return new String(data, StandardCharsets.UTF_8);
+        if (part.getParts() == null) return Optional.empty();
+        return part.getParts().stream()
+                .map(p -> findPart(p, mimeType))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .findFirst();
+    }
+
+    private static String decode(String data) {
+        return new String(com.google.api.client.util.Base64.decodeBase64(data), StandardCharsets.UTF_8);
+    }
+
+    private static String stripHtml(String html) {
+        return html.replaceAll("<[^>]+>", " ").replaceAll("\\s+", " ").trim();
     }
 }

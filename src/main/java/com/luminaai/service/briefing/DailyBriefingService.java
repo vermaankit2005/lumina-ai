@@ -1,6 +1,7 @@
 package com.luminaai.service.briefing;
 
 import com.luminaai.domain.enums.RunStatus;
+import com.luminaai.domain.enums.TaskPriority;
 import com.luminaai.domain.model.AnalysisResult;
 import com.luminaai.domain.model.EmailMessage;
 import com.luminaai.entity.ActionTask;
@@ -50,6 +51,12 @@ public class DailyBriefingService implements BriefingService {
     @Override
     public void runDailyBriefing() {
         log.info("Starting daily briefing run...");
+
+        if (briefingRunRepository.findByRunDateAndStatus(LocalDate.now(), RunStatus.SUCCESS).isPresent()) {
+            log.info("Daily briefing already succeeded today — skipping.");
+            return;
+        }
+
         BriefingRun run = initRun();
 
         try {
@@ -75,10 +82,12 @@ public class DailyBriefingService implements BriefingService {
             AnalysisResult analysis = emailAnalysis.analyze(newEmails);
 
             List<ActionTask> savedTasks = persistTasks(analysis, run);
-            markAsProcessed(newEmails);
 
-            String briefing = formatter.format(analysis, savedTasks, newEmails.size());
+            String briefing = formatter.format(analysis, savedTasks, newEmails.size(), run.getRunDate());
             notification.send(briefing);
+
+            // Mark processed only after successful notification — failed sends will retry next run.
+            markAsProcessed(newEmails);
 
             completeRun(run, newEmails.size(), savedTasks.size(), analysis.getSummary());
             log.info("Briefing complete — {} email(s) processed, {} task(s) extracted.",
@@ -115,6 +124,7 @@ public class DailyBriefingService implements BriefingService {
             ActionTask task = ActionTask.builder()
                     .title(item.getTitle())
                     .description(item.getDescription())
+                    .priority(parsePriority(item.getPriority()))
                     .briefingRun(run)
                     .sourceEmailId(item.getSourceEmailId())
                     .sourceSender(item.getSourceSender())
@@ -124,6 +134,16 @@ public class DailyBriefingService implements BriefingService {
             saved.add(actionTaskRepository.save(task));
         }
         return saved;
+    }
+
+    private TaskPriority parsePriority(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        try {
+            return TaskPriority.valueOf(raw.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            log.warn("Unknown priority '{}' from LLM — falling back to default.", raw);
+            return null;
+        }
     }
 
     private void markAsProcessed(List<EmailMessage> emails) {

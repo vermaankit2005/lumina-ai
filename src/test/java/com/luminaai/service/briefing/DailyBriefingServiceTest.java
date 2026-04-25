@@ -41,7 +41,7 @@ class DailyBriefingServiceTest {
         BriefingRun savedRun = BriefingRun.builder()
                 .runDate(LocalDate.now())
                 .build();
-        when(briefingRunRepository.save(any())).thenReturn(savedRun);
+        lenient().when(briefingRunRepository.save(any())).thenReturn(savedRun);
 
         service = new DailyBriefingService(
                 emailFetcher, emailAnalysis, notification, formatter,
@@ -59,13 +59,42 @@ class DailyBriefingServiceTest {
         analysis.setSummary("All good");
         analysis.setTasks(List.of());
         when(emailAnalysis.analyze(any())).thenReturn(analysis);
-        when(formatter.format(any(), any(), anyInt())).thenReturn("briefing text");
+        when(formatter.format(any(), any(), anyInt(), any())).thenReturn("briefing text");
 
         service.runDailyBriefing();
 
         verify(emailAnalysis).analyze(List.of(email));
         verify(notification).send("briefing text");
         verify(processedEmailRepository).save(any());
+    }
+
+    @Test
+    void doesNotMarkProcessed_whenNotificationFails() {
+        EmailMessage email = EmailMessage.builder()
+                .id("e1").subject("Hi").from("a@b.com").body("body").build();
+        when(emailFetcher.fetchEmailsFromLast24Hours()).thenReturn(List.of(email));
+        when(processedEmailRepository.existsByEmailId("e1")).thenReturn(false);
+
+        AnalysisResult analysis = new AnalysisResult();
+        analysis.setSummary("ok");
+        analysis.setTasks(List.of());
+        when(emailAnalysis.analyze(any())).thenReturn(analysis);
+        when(formatter.format(any(), any(), anyInt(), any())).thenReturn("briefing text");
+        doThrow(new RuntimeException("telegram down")).when(notification).send("briefing text");
+
+        service.runDailyBriefing();
+
+        verify(processedEmailRepository, never()).save(any());
+    }
+
+    @Test
+    void skipsRun_whenAlreadySucceededToday() {
+        when(briefingRunRepository.findByRunDateAndStatus(any(), any()))
+                .thenReturn(java.util.Optional.of(BriefingRun.builder().build()));
+
+        service.runDailyBriefing();
+
+        verifyNoInteractions(emailFetcher, emailAnalysis, notification);
     }
 
     @Test

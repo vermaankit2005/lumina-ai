@@ -33,9 +33,9 @@ public class LLMService implements EmailAnalysisPort {
     private final String systemPrompt;
     private final String userPromptTemplate;
 
-    public LLMService(ChatClient.Builder chatClientBuilder) throws Exception {
+    public LLMService(ChatClient.Builder chatClientBuilder, ObjectMapper objectMapper) throws Exception {
         this.chatClient = chatClientBuilder.build();
-        this.objectMapper = new ObjectMapper();
+        this.objectMapper = objectMapper;
         this.systemPrompt = loadResource("prompts/email-analysis-system.txt");
         this.userPromptTemplate = loadResource("prompts/email-analysis-user.txt");
     }
@@ -61,7 +61,7 @@ public class LLMService implements EmailAnalysisPort {
 
         } catch (Exception e) {
             log.error("LLM analysis failed: {}", e.getMessage(), e);
-            return emptyResult("LLM error: " + e.getMessage());
+            return failureResult("LLM error: " + e.getMessage());
         }
     }
 
@@ -103,6 +103,14 @@ public class LLMService implements EmailAnalysisPort {
         result.setSummary("No significant emails to report.");
         result.setTasks(Collections.emptyList());
         result.setProcessingNotes(note);
+        return result;
+    }
+
+    private AnalysisResult failureResult(String reason) {
+        AnalysisResult result = new AnalysisResult();
+        result.setSummary("⚠️ Email analysis failed — see notes.");
+        result.setTasks(Collections.emptyList());
+        result.setProcessingNotes(reason);
         return result;
     }
 

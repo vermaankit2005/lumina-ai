@@ -1,5 +1,6 @@
 package com.luminaai.service.ai;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.luminaai.domain.model.AnalysisResult;
 import com.luminaai.domain.model.EmailMessage;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,7 +36,7 @@ class LLMServiceTest {
     @BeforeEach
     void setUp() throws Exception {
         when(chatClientBuilder.build()).thenReturn(chatClient);
-        llmService = new LLMService(chatClientBuilder);
+        llmService = new LLMService(chatClientBuilder, new ObjectMapper());
     }
 
     @Test
@@ -111,6 +112,7 @@ class LLMServiceTest {
 
         assertThat(result).isNotNull();
         assertThat(result.getTasks()).isEmpty();
+        assertThat(result.getSummary()).contains("failed");
         assertThat(result.getProcessingNotes()).contains("LLM error");
     }
 }

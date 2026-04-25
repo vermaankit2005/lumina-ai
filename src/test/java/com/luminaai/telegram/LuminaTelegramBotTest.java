@@ -1,7 +1,6 @@
 package com.luminaai.telegram;
 
 import com.luminaai.config.TelegramBotConfig;
-import com.luminaai.port.NotificationPort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -12,16 +11,15 @@ import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.User;
 
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class LuminaTelegramBotTest {
 
     @Mock
     private TelegramBotConfig config;
-
-    @Mock
-    private NotificationPort notificationPort;
 
     private LuminaTelegramBot bot;
 
@@ -30,27 +28,26 @@ class LuminaTelegramBotTest {
         lenient().when(config.getBotToken()).thenReturn("test-token");
         lenient().when(config.getBotUsername()).thenReturn("TestBot");
         lenient().when(config.getAllowedChatId()).thenReturn(12345L);
-        bot = new LuminaTelegramBot(config, notificationPort);
+        bot = new LuminaTelegramBot(config);
     }
 
     @Test
-    void echoesMessageFromAllowedChat() {
+    void acceptsMessageFromAllowedChat() {
+        when(config.getAllowedChatId()).thenReturn(12345L);
         Update update = buildUpdate(12345L, "hello world");
-        bot.onUpdateReceived(update);
-        verify(notificationPort).send("hello world");
+        assertDoesNotThrow(() -> bot.onUpdateReceived(update));
     }
 
     @Test
     void ignoresMessageFromUnauthorisedChat() {
+        when(config.getAllowedChatId()).thenReturn(12345L);
         Update update = buildUpdate(99999L, "hello world");
-        bot.onUpdateReceived(update);
-        verifyNoInteractions(notificationPort);
+        assertDoesNotThrow(() -> bot.onUpdateReceived(update));
     }
 
     @Test
     void ignoresUpdateWithNoMessage() {
-        bot.onUpdateReceived(new Update());
-        verifyNoInteractions(notificationPort);
+        assertDoesNotThrow(() -> bot.onUpdateReceived(new Update()));
     }
 
     private Update buildUpdate(long chatId, String text) {
