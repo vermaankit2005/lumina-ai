@@ -201,6 +201,38 @@ Copy `.env.example` to `.env` and set the required values.
 
 Tests use an H2 in-memory database and the `test` Spring profile. No external services are required.
 
+### Local test configuration (required)
+
+`src/test/resources/application-test.yml` is **gitignored** and must be created manually before running tests. Without it, `LuminaAiApplicationTests` and `TelegramBotConfigTest` will fail attempting to connect to PostgreSQL.
+
+Create the file with the following contents:
+
+```yaml
+# src/test/resources/application-test.yml
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;MODE=PostgreSQL;DEFAULT_NULL_ORDERING=HIGH
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    database-platform: org.hibernate.dialect.H2Dialect
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+  flyway:
+    enabled: false
+
+lumina:
+  telegram:
+    bot-token: test-bot-token
+    allowed-chat-id: 0
+```
+
+The file is gitignored because production-facing variants may contain real credentials (e.g. a Groq API key for LLM tests). The contents above are safe for local development — no real tokens are used.
+
 ---
 
 ## Project Structure
@@ -240,7 +272,7 @@ The project is built incrementally in sprints, each targeting a specific capabil
 | Sprint 2 | Telegram bot + echo | ✅ Done |
 | Sprint 3 | PostgreSQL persistence + Flyway | ✅ Done |
 | Sprint 4 | LLM integration | ⚠️ Partial — batch email processing pending |
-| Sprint 5 | Test quality + architecture polish | Planned |
+| Sprint 5 | Test quality + architecture polish | ✅ Done |
 | Sprint 6 | Scheduled job + Telegram commands (`/briefing`, `/tasks`, `done #N`) | Planned |
 | Sprint 7 | Production hardening (retry, startup validation, encrypted token storage) | Planned |
 | Sprint 8 | REST API + OpenAPI/Swagger | Planned |
