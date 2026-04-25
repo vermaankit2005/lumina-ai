@@ -6,20 +6,21 @@ import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.objects.Update;
 
-/**
- * Telegram long-polling bot. Inbound updates are logged and authorised against
- * the configured {@code lumina.telegram.allowed-chat-id}; command handling
- * (e.g. {@code /tasks}, {@code /done}) is intentionally not implemented yet.
- */
 @Slf4j
 @Component
 public class LuminaTelegramBot extends TelegramLongPollingBot {
 
     private final TelegramBotConfig config;
+    private final CommandParser commandParser;
+    private final TelegramCommandHandler commandHandler;
 
-    public LuminaTelegramBot(TelegramBotConfig config) {
+    public LuminaTelegramBot(TelegramBotConfig config,
+                             CommandParser commandParser,
+                             TelegramCommandHandler commandHandler) {
         super(config.getBotToken());
         this.config = config;
+        this.commandParser = commandParser;
+        this.commandHandler = commandHandler;
     }
 
     @Override
@@ -29,7 +30,7 @@ public class LuminaTelegramBot extends TelegramLongPollingBot {
 
     @Override
     public void onUpdateReceived(Update update) {
-        if (update.getMessage() == null || update.getMessage().getText() == null) {
+        if (!update.hasMessage() || !update.getMessage().hasText()) {
             return;
         }
 
@@ -39,6 +40,9 @@ public class LuminaTelegramBot extends TelegramLongPollingBot {
             return;
         }
 
-        log.info("Received message from chat {}: {}", chatId, update.getMessage().getText());
+        String text = update.getMessage().getText();
+        log.info("Received message from chat {}: {}", chatId, text);
+        ParsedCommand command = commandParser.parse(text);
+        commandHandler.handle(command, String.valueOf(chatId));
     }
 }
