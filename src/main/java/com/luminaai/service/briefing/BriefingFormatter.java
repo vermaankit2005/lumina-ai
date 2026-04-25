@@ -14,10 +14,10 @@ import java.util.List;
 @Component
 public class BriefingFormatter {
 
-    public String format(AnalysisResult analysis, List<ActionTask> tasks, int emailsProcessed) {
+    public String format(AnalysisResult analysis, List<ActionTask> tasks, int emailsProcessed, LocalDate runDate) {
         StringBuilder sb = new StringBuilder("\n\n");
         sb.append("🌅 *Lumina AI Daily Briefing*\n");
-        sb.append("📅 ").append(LocalDate.now()).append("\n");
+        sb.append("📅 ").append(runDate).append("\n");
         sb.append("✉️ Processed ").append(emailsProcessed).append(" new email(s)\n\n");
 
         sb.append("📧 *SUMMARY*\n");

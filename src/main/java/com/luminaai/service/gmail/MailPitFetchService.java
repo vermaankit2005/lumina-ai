@@ -5,8 +5,9 @@ import com.luminaai.port.EmailFetcherPort;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.client.RestClient;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -27,7 +28,10 @@ public class MailPitFetchService implements EmailFetcherPort {
 
     private static final long TWENTY_FOUR_HOURS_MS = 24L * 60 * 60 * 1000;
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestClient restClient = RestClient.create();
+
+    private static final ParameterizedTypeReference<Map<String, Object>> MAP_REF =
+            new ParameterizedTypeReference<>() {};
 
     @Value("${lumina.mailpit.api-url}")
     private String apiUrl;
@@ -36,7 +40,10 @@ public class MailPitFetchService implements EmailFetcherPort {
     @SuppressWarnings("unchecked")
     public List<EmailMessage> fetchEmailsFromLast24Hours() {
         try {
-            Map<String, Object> response = restTemplate.getForObject(apiUrl + "?limit=50", Map.class);
+            Map<String, Object> response = restClient.get()
+                    .uri(apiUrl + "?limit=50")
+                    .retrieve()
+                    .body(MAP_REF);
             if (response == null) return List.of();
 
             List<Map<String, Object>> messages = (List<Map<String, Object>>) response.get("messages");
@@ -86,8 +93,12 @@ public class MailPitFetchService implements EmailFetcherPort {
     private String fetchBody(String messageId) {
         try {
             String detailUrl = apiUrl.replace("/messages", "") + "/message/" + messageId;
-            Map<String, Object> detail = restTemplate.getForObject(detailUrl, Map.class);
-            if (detail != null) return (String) detail.getOrDefault("Text", "(body unavailable)");
+            Map<String, Object> detail = restClient.get().uri(detailUrl).retrieve().body(MAP_REF);
+            if (detail == null) return "(body unavailable)";
+            String text = (String) detail.get("Text");
+            if (text != null && !text.isBlank()) return text;
+            String html = (String) detail.get("HTML");
+            return html != null ? html : "(body unavailable)";
         } catch (Exception e) {
             log.warn("Failed to fetch body for message {}: {}", messageId, e.getMessage());
         }

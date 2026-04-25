@@ -1,5 +1,6 @@
 package com.luminaai.repository;
 
+import com.luminaai.domain.enums.RunStatus;
 import com.luminaai.entity.BriefingRun;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
@@ -9,5 +10,5 @@ import java.util.Optional;
 
 @Repository
 public interface BriefingRunRepository extends JpaRepository<BriefingRun, Long> {
-    Optional<BriefingRun> findByRunDate(LocalDate runDate);
+    Optional<BriefingRun> findByRunDateAndStatus(LocalDate runDate, RunStatus status);
 }

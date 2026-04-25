@@ -1,7 +1,6 @@
 package com.luminaai.service.notification;
 
 import com.luminaai.config.TelegramBotConfig;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -16,18 +15,12 @@ class TelegramNotificationServiceTest {
     @Mock
     private TelegramBotConfig config;
 
-    private TelegramNotificationService service;
-
-    @BeforeEach
-    void setUp() {
-        when(config.getBotToken()).thenReturn("");
-        service = new TelegramNotificationService(config);
-    }
-
     @Test
     void send_doesNotThrowWhenTokenIsEmpty() {
         // When the bot token is absent (local dev without Telegram), send() must
         // log a warning and return gracefully rather than throwing.
+        when(config.getBotToken()).thenReturn("");
+        TelegramNotificationService service = new TelegramNotificationService(config);
         assertDoesNotThrow(() -> service.send("hello"));
     }
 }

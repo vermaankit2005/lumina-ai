@@ -21,6 +21,12 @@ out/
 # OS specific
 .DS_Store
 Thumbs.db
+*.stackdump
+
+# Node (stray)
+node_modules/
+package.json
+package-lock.json
 
 # Lumina sensitive files
 .env
