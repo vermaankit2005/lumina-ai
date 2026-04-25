@@ -11,5 +11,4 @@ import java.util.Optional;
 @Repository
 public interface BriefingRunRepository extends JpaRepository<BriefingRun, Long> {
     Optional<BriefingRun> findByRunDateAndStatus(LocalDate runDate, RunStatus status);
-    boolean existsByRunDate(LocalDate runDate);
 }

@@ -1,5 +1,6 @@
 package com.luminaai.scheduler;
 
+import com.luminaai.domain.enums.RunStatus;
 import com.luminaai.repository.BriefingRunRepository;
 import com.luminaai.service.briefing.BriefingService;
 import lombok.RequiredArgsConstructor;
@@ -19,8 +20,8 @@ public class DailyBriefingJob {
 
     @Scheduled(cron = "0 0 7 * * *")
     public void runMorningBriefing() {
-        if (briefingRunRepository.existsByRunDate(LocalDate.now())) {
-            log.info("Briefing already ran today — skipping scheduled run.");
+        if (briefingRunRepository.findByRunDateAndStatus(LocalDate.now(), RunStatus.SUCCESS).isPresent()) {
+            log.info("Briefing already succeeded today — skipping scheduled run.");
             return;
         }
         log.info("Starting scheduled morning briefing.");
