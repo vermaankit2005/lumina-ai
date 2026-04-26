@@ -271,8 +271,9 @@ The project is built incrementally in sprints, each targeting a specific capabil
 | Sprint 1 | Gmail OAuth2 integration | ✅ Done |
 | Sprint 2 | Telegram bot + echo | ✅ Done |
 | Sprint 3 | PostgreSQL persistence + Flyway | ✅ Done |
-| Sprint 4 | LLM integration | ⚠️ Partial — batch email processing pending |
+| Sprint 4 | LLM integration | ✅ Done |
 | Sprint 5 | Test quality + architecture polish | ✅ Done |
-| Sprint 6 | Scheduled job + Telegram commands (`/briefing`, `/tasks`, `done #N`) | Planned |
-| Sprint 7 | Production hardening (retry, startup validation, encrypted token storage) | Planned |
-| Sprint 8 | REST API + OpenAPI/Swagger | Planned |
+| Sprint 6 | Scheduled job + Telegram commands (`/briefing`, `/tasks`, `done #N`) | ✅ Done |
+| Sprint 7 | Proactive task reminders (evening digest, deadline alerts, urgency scoring) | Planned |
+| Sprint 8 | Production hardening (retry, startup validation, encrypted token storage) | Planned |
+| Sprint 9 | REST API + OpenAPI/Swagger | Planned |
