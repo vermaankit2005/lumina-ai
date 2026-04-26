@@ -55,6 +55,9 @@ public class ActionTask {
     @Column(name = "deadline_date")
     private LocalDate deadlineDate;
 
+    @Column(name = "reminder_sent_date")
+    private LocalDate reminderSentDate;
+
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
 
