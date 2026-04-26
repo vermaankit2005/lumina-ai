@@ -6,10 +6,6 @@ Lumina connects to your Gmail, passes unread emails through an LLM, extracts act
 
 ---
 
-## Demo
-
-> **Add a screenshot here** — paste a real Telegram briefing message and the evening digest side by side. A single image does more than any paragraph.
-
 **Telegram commands supported:**
 
 | Command | What it does |
