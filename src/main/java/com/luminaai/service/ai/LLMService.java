@@ -16,17 +16,16 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
-/**
- * {@link EmailAnalysisPort} implementation backed by a locally-running or remote LLM
- * (Ollama in production, OpenAI-compatible in test).
- *
- * <p>Prompts are loaded from {@code classpath:prompts/} so they can be tuned without
- * recompiling the service.
- */
 @Slf4j
 @Service
 public class LLMService implements EmailAnalysisPort {
+
+    private static final int MAX_ATTEMPTS = 2;
+    private static final long RETRY_DELAY_MS = 2_000;
 
     private final ChatClient chatClient;
     private final ObjectMapper objectMapper;
@@ -51,15 +50,13 @@ public class LLMService implements EmailAnalysisPort {
             String userPrompt = buildUserPrompt(emails);
             log.info("Sending {} email(s) to LLM for analysis...", emails.size());
 
-            String rawJson = chatClient.prompt()
-                    .system(systemPrompt)
-                    .user(userPrompt)
-                    .call()
-                    .content();
-
+            String rawJson = callWithRetry(userPrompt);
             String cleanJson = sanitizeJson(rawJson);
             log.debug("LLM raw response length={}, cleaned length={}", rawJson.length(), cleanJson.length());
-            return objectMapper.readValue(cleanJson, AnalysisResult.class);
+
+            AnalysisResult result = objectMapper.readValue(cleanJson, AnalysisResult.class);
+            deduplicateHighlights(result);
+            return result;
 
         } catch (Exception e) {
             log.error("LLM analysis failed: {}", e.getMessage(), e);
@@ -68,6 +65,24 @@ public class LLMService implements EmailAnalysisPort {
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
+
+    private String callWithRetry(String userPrompt) throws Exception {
+        Exception last = null;
+        for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+            try {
+                return chatClient.prompt()
+                        .system(systemPrompt)
+                        .user(userPrompt)
+                        .call()
+                        .content();
+            } catch (Exception e) {
+                last = e;
+                log.warn("LLM call failed (attempt {}/{}): {}", attempt, MAX_ATTEMPTS, e.getMessage());
+                if (attempt < MAX_ATTEMPTS) Thread.sleep(RETRY_DELAY_MS);
+            }
+        }
+        throw last;
+    }
 
     private String buildUserPrompt(List<EmailMessage> emails) {
         LocalDate today = LocalDate.now();
@@ -79,8 +94,7 @@ public class LLMService implements EmailAnalysisPort {
             threads.append("THREAD [").append(i + 1).append("]:\n")
                     .append("  Thread-ID: ").append(email.getId()).append("\n")
                     .append("  Subject: ").append(email.getSubject()).append("\n")
-                    .append("  Participants: From ").append(email.getFrom()).append("\n")
-                    .append("  Messages in thread: 1\n")
+                    .append("  From: ").append(email.getFrom()).append("\n")
                     .append("  ---\n")
                     .append(truncate(email.getBody(), 2000)).append("\n")
                     .append("  ---\n\n");
@@ -91,22 +105,36 @@ public class LLMService implements EmailAnalysisPort {
                 .replace("{today_day_of_week}", today.getDayOfWeek().toString())
                 .replace("{since_datetime}", since.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")))
                 .replace("{thread_count}", String.valueOf(emails.size()))
-                .replace("{email_threads}", threads.toString())
-                .replace("{open_tasks_context}", "None");
+                .replace("{email_threads}", threads.toString());
+    }
+
+    /** Remove highlights whose thread already produced a task — enforces non-overlap deterministically. */
+    private void deduplicateHighlights(AnalysisResult result) {
+        if (result.getInboxHighlights() == null || result.getInboxHighlights().isEmpty()) return;
+        if (result.getTasks() == null || result.getTasks().isEmpty()) return;
+
+        Set<String> taskThreadIds = result.getTasks().stream()
+                .map(AnalysisResult.TaskItem::getSourceThreadId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        result.setInboxHighlights(
+                result.getInboxHighlights().stream()
+                        .filter(h -> h.getThreadId() == null || !taskThreadIds.contains(h.getThreadId()))
+                        .toList()
+        );
     }
 
     private String sanitizeJson(String raw) {
-        if (raw == null) return "{}";
-        String s = raw.strip();
-        // strip ```json ... ``` or ``` ... ``` fences that smaller models emit despite instructions
-        if (s.startsWith("```")) {
-            int firstNewline = s.indexOf('\n');
-            int lastFence = s.lastIndexOf("```");
-            if (firstNewline > 0 && lastFence > firstNewline) {
-                s = s.substring(firstNewline + 1, lastFence).strip();
-            }
-        }
-        return s;
+        if (raw == null || raw.isBlank()) return "{}";
+        String s = raw.strip()
+                .replaceFirst("^```(?:json|JSON)?\\s*", "")
+                .replaceFirst("\\s*```\\s*$", "");
+        // Grab the outermost { ... } in case the model added preamble/postamble
+        int first = s.indexOf('{');
+        int last  = s.lastIndexOf('}');
+        if (first >= 0 && last > first) s = s.substring(first, last + 1);
+        return s.isBlank() ? "{}" : s;
     }
 
     private String truncate(String text, int maxLength) {
@@ -116,16 +144,18 @@ public class LLMService implements EmailAnalysisPort {
 
     private AnalysisResult emptyResult(String note) {
         AnalysisResult result = new AnalysisResult();
-        result.setSummary("No significant emails to report.");
+        result.setSummary("Quiet inbox — nothing to report.");
         result.setTasks(Collections.emptyList());
+        result.setInboxHighlights(Collections.emptyList());
         result.setProcessingNotes(note);
         return result;
     }
 
     private AnalysisResult failureResult(String reason) {
         AnalysisResult result = new AnalysisResult();
-        result.setSummary("⚠️ Email analysis failed — see notes.");
+        result.setSummary("Analysis failed — check processing notes.");
         result.setTasks(Collections.emptyList());
+        result.setInboxHighlights(Collections.emptyList());
         result.setProcessingNotes(reason);
         return result;
     }

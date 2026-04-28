@@ -11,21 +11,4 @@ EMAIL THREADS:
 {email_threads}
 ---
 
-Each thread above is formatted as:
-THREAD [N]:
-  Thread-ID: <id>
-  Subject: <subject>
-  Participants: From <sender>
-  Messages in thread: <count>
-  ---
-  <combined body text>
-  ---
-
----
-
-OPEN TASKS FROM PREVIOUS DAYS (for context — do NOT re-extract these):
-{open_tasks_context}
-
----
-
 Analyze every thread above. For each one: categorize it, infer the action if implicit, then output the full JSON response matching your schema.
