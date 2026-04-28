@@ -150,10 +150,33 @@ CRITICAL OUTPUT RULES:
 - If no emails require attention, return empty arrays (not null)
 
 ───────────────────────────────────────────────────────────────────
+RULES FOR THE THREE OUTPUT SECTIONS:
+
+  summary (1 sentence only):
+    A punchy, conversational mood line for the inbox.
+    Examples: "Bills, a government notice, and one reply from Ravi — not a bad day."
+              "Quiet inbox today — just a delivery update and a seminar invite."
+              "Busy one — three action items including a tax notice."
+    Never more than one sentence. Never a list. Never mention every email.
+
+  inbox_highlights (0–4 items, awareness only):
+    Short bullets for emails that arrived but produced NO action item — pure awareness.
+    Only include if the email is at least mildly interesting (skip pure promotional noise).
+    Each string should be concise: "📦 Flipkart: order out for delivery"
+    Do NOT duplicate anything already captured as a task.
+    If every email produced a task, this list should be empty.
+
+  tasks (action items):
+    As defined in the extraction rules above.
+
+───────────────────────────────────────────────────────────────────
 RESPONSE SCHEMA — output this exact structure, nothing else:
 {
-  "summary": "string (1-3 conversational sentences addressed to 'you'; cover all relevant categories — bills, government mail, deliveries, events, personal messages; calibrate to how busy the inbox is)",
+  "summary": "string (exactly 1 punchy sentence — inbox mood, conversational, addressed to 'you')",
   "important_thread_count": integer,
+  "inbox_highlights": [
+    "string (short awareness bullet for emails with no action item, e.g. '📦 Flipkart: order out for delivery', '📧 GitHub sent weekly security digest')"
+  ],
   "tasks": [
     {
       "title": "string (action verb + object, max 100 chars, e.g. 'Pay Vodafone bill', 'Review state government notice', 'Decide whether to attend AI seminar')",

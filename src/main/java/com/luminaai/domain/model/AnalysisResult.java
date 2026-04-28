@@ -19,6 +19,9 @@ public class AnalysisResult {
     @JsonProperty("important_thread_count")
     private int importantThreadCount;
 
+    @JsonProperty("inbox_highlights")
+    private List<String> inboxHighlights;
+
     private List<TaskItem> tasks;
 
     @JsonProperty("processing_notes")
