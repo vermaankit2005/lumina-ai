@@ -5,6 +5,11 @@
 Lumina connects to your Gmail, passes unread emails through an LLM, extracts action items, and delivers a structured briefing to your Telegram every morning. Three scheduled jobs run the full loop — you open Telegram, see what matters, reply `done #N` to close tasks.
 
 ---
+<img width="246" height="533" alt="Lumina" src="https://github.com/user-attachments/assets/db48089f-3dff-488b-b0e9-cc8eea95eed5" />
+
+
+
+---
 
 **Telegram commands supported:**
 
