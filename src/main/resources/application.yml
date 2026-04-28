@@ -24,6 +24,7 @@ spring:
         options:
           model: ${OLLAMA_MODEL:mistral}
           temperature: 0.1
+          format: json
 
 lumina:
   gmail:

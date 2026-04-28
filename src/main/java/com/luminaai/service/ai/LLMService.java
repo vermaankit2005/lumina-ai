@@ -57,7 +57,9 @@ public class LLMService implements EmailAnalysisPort {
                     .call()
                     .content();
 
-            return objectMapper.readValue(rawJson, AnalysisResult.class);
+            String cleanJson = sanitizeJson(rawJson);
+            log.debug("LLM raw response length={}, cleaned length={}", rawJson.length(), cleanJson.length());
+            return objectMapper.readValue(cleanJson, AnalysisResult.class);
 
         } catch (Exception e) {
             log.error("LLM analysis failed: {}", e.getMessage(), e);
@@ -91,6 +93,20 @@ public class LLMService implements EmailAnalysisPort {
                 .replace("{thread_count}", String.valueOf(emails.size()))
                 .replace("{email_threads}", threads.toString())
                 .replace("{open_tasks_context}", "None");
+    }
+
+    private String sanitizeJson(String raw) {
+        if (raw == null) return "{}";
+        String s = raw.strip();
+        // strip ```json ... ``` or ``` ... ``` fences that smaller models emit despite instructions
+        if (s.startsWith("```")) {
+            int firstNewline = s.indexOf('\n');
+            int lastFence = s.lastIndexOf("```");
+            if (firstNewline > 0 && lastFence > firstNewline) {
+                s = s.substring(firstNewline + 1, lastFence).strip();
+            }
+        }
+        return s;
     }
 
     private String truncate(String text, int maxLength) {
