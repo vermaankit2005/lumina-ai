@@ -130,6 +130,8 @@ public class DailyBriefingService implements BriefingService {
                     .sourceSender(item.getSourceSender())
                     .sourceSubject(item.getSourceSubject())
                     .deadlineDate(parseDate(item.getDeadlineDate()))
+                    .deadlineRawText(item.getDeadlineRawText())
+                    .confidence(item.getConfidence() > 0 ? item.getConfidence() : null)
                     .build();
             saved.add(actionTaskRepository.save(task));
         }

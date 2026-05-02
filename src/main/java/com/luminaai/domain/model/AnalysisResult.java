@@ -8,7 +8,7 @@ import java.util.List;
 
 /**
  * Structured result produced by the AI analysis of a batch of emails.
- * Contains an executive summary and a list of extracted action items.
+ * Contains a mood-line summary, inbox awareness highlights, and extracted action items.
  */
 @Data
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -19,10 +19,21 @@ public class AnalysisResult {
     @JsonProperty("important_thread_count")
     private int importantThreadCount;
 
+    @JsonProperty("inbox_highlights")
+    private List<InboxHighlight> inboxHighlights;
+
     private List<TaskItem> tasks;
 
     @JsonProperty("processing_notes")
     private String processingNotes;
+
+    @Data
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class InboxHighlight {
+        @JsonProperty("thread_id")
+        private String threadId;
+        private String text;
+    }
 
     @Data
     @JsonIgnoreProperties(ignoreUnknown = true)

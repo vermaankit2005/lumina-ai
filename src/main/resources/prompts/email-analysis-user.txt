@@ -2,26 +2,13 @@ Today's date: {today_date} ({today_day_of_week})
 Processing window: Last 24 hours (since {since_datetime})
 Email threads to analyze: {thread_count}
 
+This is a personal Gmail inbox — not a corporate account.
+Emails include bills, government notices, deliveries, seminars, banking alerts, and personal messages.
+Apply the category-based inference rules from your instructions to surface implicit action items.
+
 ---
 EMAIL THREADS:
 {email_threads}
 ---
 
-Each thread above is formatted as:
-THREAD [N]:
-  Thread-ID: <id>
-  Subject: <subject>
-  Participants: <from>, <to/cc>
-  Messages: <count>
-  Latest message time: <timestamp>
-  Combined body:
-  <thread_body_text>
-
----
-
-OPEN TASKS FROM PREVIOUS DAYS (for context — do NOT re-extract these):
-{open_tasks_context}
-
----
-
-Analyze the email threads above and respond with JSON matching the schema in your instructions.
+Analyze every thread above. For each one: categorize it, infer the action if implicit, then output the full JSON response matching your schema.

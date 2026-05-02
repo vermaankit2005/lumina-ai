@@ -55,6 +55,12 @@ public class ActionTask {
     @Column(name = "deadline_date")
     private LocalDate deadlineDate;
 
+    @Column(name = "deadline_raw_text", length = 200)
+    private String deadlineRawText;
+
+    @Column(name = "confidence")
+    private Float confidence;
+
     @Column(name = "reminder_sent_date")
     private LocalDate reminderSentDate;
 

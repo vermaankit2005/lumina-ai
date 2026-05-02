@@ -24,6 +24,8 @@ spring:
         options:
           model: ${OLLAMA_MODEL:mistral}
           temperature: 0.1
+          format: json
+          num-ctx: 8192
 
 lumina:
   gmail:
