@@ -26,6 +26,10 @@ public class CommandParser {
             return ParsedCommand.of(Command.TASKS);
         }
 
+        if (trimmed.equalsIgnoreCase("/help") || trimmed.equalsIgnoreCase("help")) {
+            return ParsedCommand.of(Command.HELP);
+        }
+
         Matcher doneMatcher = DONE_PATTERN.matcher(trimmed);
         if (doneMatcher.matches()) {
             int taskId = Integer.parseInt(doneMatcher.group(1));

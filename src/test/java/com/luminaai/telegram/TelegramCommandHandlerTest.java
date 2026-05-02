@@ -95,12 +95,28 @@ class TelegramCommandHandlerTest {
     }
 
     @Test
-    void unknownCommandSendsHelpMessage() {
+    void helpCommandSendsHelpMessage() {
+        handler.handle(ParsedCommand.of(Command.HELP), "12345");
+
+        ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
+        verify(notificationPort).send(captor.capture());
+        assertThat(captor.getValue())
+                .contains("/briefing")
+                .contains("/tasks")
+                .contains("done #N")
+                .contains("/help");
+    }
+
+    @Test
+    void unknownCommandSendsHelpMessageWithPrefix() {
         handler.handle(ParsedCommand.of(Command.UNKNOWN), "12345");
 
         ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
         verify(notificationPort).send(captor.capture());
-        assertThat(captor.getValue()).contains("/briefing").contains("/tasks").contains("done #N");
+        assertThat(captor.getValue())
+                .containsIgnoringCase("unknown")
+                .contains("/briefing")
+                .contains("/tasks");
     }
 
     private ActionTask buildTask(Long id, String title, TaskPriority priority) {

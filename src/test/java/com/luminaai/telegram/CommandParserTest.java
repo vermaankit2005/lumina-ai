@@ -43,7 +43,15 @@ class CommandParserTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"hello", "help", "random text", "123"})
+    @ValueSource(strings = {"/help", "/HELP", "help", "HELP"})
+    void parsesHelpCommand(String input) {
+        ParsedCommand result = parser.parse(input);
+        assertThat(result.type()).isEqualTo(Command.HELP);
+        assertThat(result.taskId()).isEmpty();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"hello", "random text", "123"})
     void parsesUnknownCommands(String input) {
         ParsedCommand result = parser.parse(input);
         assertThat(result.type()).isEqualTo(Command.UNKNOWN);

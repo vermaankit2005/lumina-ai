@@ -28,7 +28,8 @@ public class TelegramCommandHandler {
             case BRIEFING -> runBriefing();
             case TASKS -> sendTaskList();
             case DONE -> markDone(command.taskId());
-            case UNKNOWN -> notificationPort.send(helpMessage());
+            case HELP -> notificationPort.send(helpMessage());
+            case UNKNOWN -> notificationPort.send("Unknown command\\. " + helpMessage());
         }
     }
 
@@ -84,9 +85,11 @@ public class TelegramCommandHandler {
 
     private String helpMessage() {
         return """
-                Lumina AI — available commands:
-                /briefing — run today's email briefing
-                /tasks — list open action items
-                done #N — mark task N as done""";
+                *Lumina AI — Available Commands*
+
+                /briefing — fetch and analyse your emails now
+                /tasks — list all open action items
+                `done #N` — mark task N as complete \\(e\\.g\\. `done #3`\\)
+                /help — show this message""";
     }
 }
