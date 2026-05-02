@@ -60,7 +60,7 @@ public class LLMService implements EmailAnalysisPort {
 
         } catch (Exception e) {
             log.error("LLM analysis failed: {}", e.getMessage(), e);
-            return failureResult("LLM error: " + e.getMessage());
+            throw new RuntimeException("LLM analysis failed", e);
         }
     }
 
@@ -148,15 +148,6 @@ public class LLMService implements EmailAnalysisPort {
         result.setTasks(Collections.emptyList());
         result.setInboxHighlights(Collections.emptyList());
         result.setProcessingNotes(note);
-        return result;
-    }
-
-    private AnalysisResult failureResult(String reason) {
-        AnalysisResult result = new AnalysisResult();
-        result.setSummary("Analysis failed — check processing notes.");
-        result.setTasks(Collections.emptyList());
-        result.setInboxHighlights(Collections.emptyList());
-        result.setProcessingNotes(reason);
         return result;
     }
 

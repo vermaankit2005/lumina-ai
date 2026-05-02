@@ -22,8 +22,8 @@ public class BriefingFormatter {
 
         // HEADER
         int important = analysis.getImportantThreadCount();
-        sb.append("🗂 *LUMINA AI DAILY BRIEFING*\n");
-        sb.append("📆 _").append(runDate).append("_");
+        sb.append("🗂 *Lumina — Daily Briefing*\n");
+        sb.append("_").append(runDate).append("_");
         if (emailsProcessed > 0) {
             sb.append("  _•  ").append(emailsProcessed).append(" emails");
             if (important > 0) sb.append(", ").append(important).append(" notable");
@@ -119,7 +119,7 @@ public class BriefingFormatter {
         return switch (priority) {
             case "HIGH"   -> "🔴";
             case "MEDIUM" -> "🟡";
-            case "LOW"    -> "🟢";
+            case "LOW"    -> "⚪";
             default       -> "";
         };
     }
