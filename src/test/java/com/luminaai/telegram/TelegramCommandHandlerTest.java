@@ -3,7 +3,6 @@ package com.luminaai.telegram;
 import com.luminaai.domain.enums.TaskPriority;
 import com.luminaai.domain.enums.TaskStatus;
 import com.luminaai.entity.ActionTask;
-import com.luminaai.port.NotificationPort;
 import com.luminaai.repository.ActionTaskRepository;
 import com.luminaai.service.briefing.BriefingService;
 import com.luminaai.service.task.TaskFormatter;
@@ -25,41 +24,40 @@ class TelegramCommandHandlerTest {
 
     @Mock private BriefingService briefingService;
     @Mock private ActionTaskRepository taskRepository;
-    @Mock private NotificationPort notificationPort;
+    @Mock private TelegramSender telegramSender;
 
     private TelegramCommandHandler handler;
 
     @BeforeEach
     void setUp() {
-        handler = new TelegramCommandHandler(briefingService, taskRepository, notificationPort, new TaskFormatter());
+        handler = new TelegramCommandHandler(briefingService, taskRepository, telegramSender, new TaskFormatter());
     }
 
     @Test
     void briefingCommandTriggersBriefingService() {
         handler.handle(ParsedCommand.of(Command.BRIEFING), "12345");
         verify(briefingService).runDailyBriefing();
-        verifyNoInteractions(notificationPort);
+        verifyNoInteractions(telegramSender);
     }
 
     @Test
-    void tasksCommandSendsOpenTaskList() {
+    void tasksCommandSendsOpenTaskListWithKeyboard() {
         ActionTask task = buildTask(1L, "Reply to Alice", TaskPriority.HIGH);
         when(taskRepository.findByStatus(TaskStatus.OPEN)).thenReturn(List.of(task));
 
         handler.handle(ParsedCommand.of(Command.TASKS), "12345");
 
-        ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
-        verify(notificationPort).send(captor.capture());
-        assertThat(captor.getValue()).contains("#1").contains("🔴").contains("Reply to Alice").contains("done #N");
+        verify(telegramSender).sendWithKeyboard(
+                argThat(text -> text.contains("#1") && text.contains("Reply to Alice") && text.contains("done #N")),
+                argThat(kb -> kb != null && kb.getKeyboard().get(0).get(0).getCallbackData().equals("done:1"))
+        );
     }
 
     @Test
     void tasksCommandSendsNoOpenTasksWhenEmpty() {
         when(taskRepository.findByStatus(TaskStatus.OPEN)).thenReturn(List.of());
-
         handler.handle(ParsedCommand.of(Command.TASKS), "12345");
-
-        verify(notificationPort).send("No open tasks.");
+        verify(telegramSender).send("No open tasks.");
     }
 
     @Test
@@ -72,25 +70,22 @@ class TelegramCommandHandlerTest {
         assertThat(task.getStatus()).isEqualTo(TaskStatus.DONE);
         assertThat(task.getCompletedAt()).isNotNull();
         verify(taskRepository).save(task);
-        verify(notificationPort).send("✅ Task #2 marked done.");
+        verify(telegramSender).send("✅ Task #2 marked done.");
     }
 
     @Test
     void doneCommandSendsNotFoundWhenTaskMissing() {
         when(taskRepository.findById(99L)).thenReturn(Optional.empty());
-
         handler.handle(ParsedCommand.done(99), "12345");
-
-        verify(notificationPort).send("Task #99 not found.");
+        verify(telegramSender).send("Task #99 not found.");
         verify(taskRepository, never()).save(any());
     }
 
     @Test
     void doneCommandWithNoIdSendsUsageHint() {
         handler.handle(ParsedCommand.of(Command.DONE), "12345");
-
         ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
-        verify(notificationPort).send(captor.capture());
+        verify(telegramSender).send(captor.capture());
         assertThat(captor.getValue()).containsIgnoringCase("usage");
         verifyNoInteractions(taskRepository);
     }
@@ -98,26 +93,42 @@ class TelegramCommandHandlerTest {
     @Test
     void helpCommandSendsHelpMessage() {
         handler.handle(ParsedCommand.of(Command.HELP), "12345");
-
         ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
-        verify(notificationPort).send(captor.capture());
+        verify(telegramSender).send(captor.capture());
         assertThat(captor.getValue())
-                .contains("/briefing")
-                .contains("/tasks")
-                .contains("done #N")
-                .contains("/help");
+                .contains("/briefing").contains("/tasks").contains("done #N").contains("/help");
     }
 
     @Test
     void unknownCommandSendsHelpMessageWithPrefix() {
         handler.handle(ParsedCommand.of(Command.UNKNOWN), "12345");
-
         ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
-        verify(notificationPort).send(captor.capture());
-        assertThat(captor.getValue())
-                .containsIgnoringCase("unknown")
-                .contains("/briefing")
-                .contains("/tasks");
+        verify(telegramSender).send(captor.capture());
+        assertThat(captor.getValue()).containsIgnoringCase("unknown").contains("/briefing").contains("/tasks");
+    }
+
+    @Test
+    void callbackDoneMarksTaskDone() {
+        ActionTask task = buildTask(5L, "Pay bill", TaskPriority.HIGH);
+        when(taskRepository.findById(5L)).thenReturn(Optional.of(task));
+
+        handler.handleCallback("done:5", "12345");
+
+        assertThat(task.getStatus()).isEqualTo(TaskStatus.DONE);
+        verify(taskRepository).save(task);
+        verify(telegramSender).send("✅ Task #5 marked done.");
+    }
+
+    @Test
+    void callbackWithUnknownDataIsIgnored() {
+        handler.handleCallback("unknown:xyz", "12345");
+        verifyNoInteractions(taskRepository, telegramSender);
+    }
+
+    @Test
+    void callbackWithInvalidIdIsIgnored() {
+        handler.handleCallback("done:abc", "12345");
+        verifyNoInteractions(taskRepository, telegramSender);
     }
 
     private ActionTask buildTask(Long id, String title, TaskPriority priority) {

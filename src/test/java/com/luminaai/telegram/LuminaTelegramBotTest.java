@@ -11,6 +11,8 @@ import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.User;
 
+import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
+
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
@@ -68,6 +70,47 @@ class LuminaTelegramBotTest {
         update.setMessage(message);
 
         bot.onUpdateReceived(update);
+        verifyNoInteractions(commandParser, commandHandler);
+    }
+
+    @Test
+    void routesCallbackQueryFromAllowedChatToCommandHandler() {
+        CallbackQuery callbackQuery = new CallbackQuery();
+        callbackQuery.setId("cbq-1");
+        callbackQuery.setData("done:5");
+        Message cbMessage = new Message();
+        Chat cbChat = new Chat();
+        cbChat.setId(12345L);
+        cbChat.setType("private");
+        cbMessage.setChat(cbChat);
+        callbackQuery.setMessage(cbMessage);
+
+        Update update = new Update();
+        update.setCallbackQuery(callbackQuery);
+
+        bot.onUpdateReceived(update);
+
+        verify(commandHandler).handleCallback("done:5", "12345");
+        verifyNoInteractions(commandParser);
+    }
+
+    @Test
+    void ignoresCallbackQueryFromUnauthorisedChat() {
+        CallbackQuery callbackQuery = new CallbackQuery();
+        callbackQuery.setId("cbq-2");
+        callbackQuery.setData("done:5");
+        Message cbMessage = new Message();
+        Chat cbChat = new Chat();
+        cbChat.setId(99999L);
+        cbChat.setType("private");
+        cbMessage.setChat(cbChat);
+        callbackQuery.setMessage(cbMessage);
+
+        Update update = new Update();
+        update.setCallbackQuery(callbackQuery);
+
+        bot.onUpdateReceived(update);
+
         verifyNoInteractions(commandParser, commandHandler);
     }
 
