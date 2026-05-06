@@ -43,6 +43,14 @@ class CommandParserTest {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"/add", "/ADD", "add", "ADD"})
+    void parsesAddCommand(String input) {
+        ParsedCommand result = parser.parse(input);
+        assertThat(result.type()).isEqualTo(Command.ADD);
+        assertThat(result.taskId()).isEmpty();
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"/help", "/HELP", "help", "HELP"})
     void parsesHelpCommand(String input) {
         ParsedCommand result = parser.parse(input);

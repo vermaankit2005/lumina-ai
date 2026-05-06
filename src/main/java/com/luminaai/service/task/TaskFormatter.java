@@ -23,7 +23,7 @@ public class TaskFormatter {
             }
             sb.append("\n");
         }
-        return sb.append("Reply `done #N` to close a task.").toString();
+        return sb.append("Reply `done #N` to close a task · /add to create a new one").toString();
     }
 
     public String formatAlert(ActionTask task) {

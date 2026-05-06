@@ -26,6 +26,10 @@ public class CommandParser {
             return ParsedCommand.of(Command.TASKS);
         }
 
+        if (trimmed.equalsIgnoreCase("/add") || trimmed.equalsIgnoreCase("add")) {
+            return ParsedCommand.of(Command.ADD);
+        }
+
         if (trimmed.equalsIgnoreCase("/help") || trimmed.equalsIgnoreCase("help")) {
             return ParsedCommand.of(Command.HELP);
         }

@@ -16,14 +16,17 @@ public class LuminaTelegramBot extends TelegramLongPollingBot {
     private final TelegramBotConfig config;
     private final CommandParser commandParser;
     private final TelegramCommandHandler commandHandler;
+    private final ConversationStateService conversationStateService;
 
     public LuminaTelegramBot(TelegramBotConfig config,
                              CommandParser commandParser,
-                             TelegramCommandHandler commandHandler) {
+                             TelegramCommandHandler commandHandler,
+                             ConversationStateService conversationStateService) {
         super(config.getBotToken());
         this.config = config;
         this.commandParser = commandParser;
         this.commandHandler = commandHandler;
+        this.conversationStateService = conversationStateService;
     }
 
     @Override
@@ -50,6 +53,16 @@ public class LuminaTelegramBot extends TelegramLongPollingBot {
 
         String text = update.getMessage().getText();
         log.info("Received message from chat {}: {}", chatId, text);
+
+        if (conversationStateService.isActive(chatId)) {
+            if ("/cancel".equalsIgnoreCase(text.strip())) {
+                commandHandler.cancelConversation(chatId);
+            } else {
+                commandHandler.handleConversationInput(text, chatId);
+            }
+            return;
+        }
+
         ParsedCommand command = commandParser.parse(text);
         commandHandler.handle(command, String.valueOf(chatId));
     }
