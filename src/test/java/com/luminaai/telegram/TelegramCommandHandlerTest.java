@@ -6,6 +6,7 @@ import com.luminaai.entity.ActionTask;
 import com.luminaai.port.NotificationPort;
 import com.luminaai.repository.ActionTaskRepository;
 import com.luminaai.service.briefing.BriefingService;
+import com.luminaai.service.task.TaskFormatter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -30,7 +31,7 @@ class TelegramCommandHandlerTest {
 
     @BeforeEach
     void setUp() {
-        handler = new TelegramCommandHandler(briefingService, taskRepository, notificationPort);
+        handler = new TelegramCommandHandler(briefingService, taskRepository, notificationPort, new TaskFormatter());
     }
 
     @Test
@@ -49,7 +50,7 @@ class TelegramCommandHandlerTest {
 
         ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
         verify(notificationPort).send(captor.capture());
-        assertThat(captor.getValue()).contains("#1").contains("🔴").contains("Reply to Alice");
+        assertThat(captor.getValue()).contains("#1").contains("🔴").contains("Reply to Alice").contains("done #N");
     }
 
     @Test

@@ -4,6 +4,7 @@ import com.luminaai.domain.enums.TaskStatus;
 import com.luminaai.entity.ActionTask;
 import com.luminaai.port.NotificationPort;
 import com.luminaai.repository.ActionTaskRepository;
+import com.luminaai.service.task.TaskFormatter;
 import com.luminaai.service.task.TaskUrgencyScorer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,7 +30,7 @@ class TaskDigestJobTest {
 
     @BeforeEach
     void setUp() {
-        job = new TaskDigestJob(taskRepository, urgencyScorer, notificationPort);
+        job = new TaskDigestJob(taskRepository, urgencyScorer, new TaskFormatter(), notificationPort);
     }
 
     @Test
@@ -45,39 +46,38 @@ class TaskDigestJobTest {
         task.setId(1L);
         task.setTitle("Write report");
         when(taskRepository.findByStatus(TaskStatus.OPEN)).thenReturn(List.of(task));
-        when(urgencyScorer.score(task)).thenReturn(300.0);
 
         job.sendEveningDigest();
 
         ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
         verify(notificationPort).send(captor.capture());
         String msg = captor.getValue();
-        assertThat(msg).contains("Evening Task Digest").contains("#1").contains("Write report");
+        assertThat(msg).contains("Evening Digest").contains("#1").contains("Write report");
     }
 
     @Test
-    void deadlineCaveatAppendedWhenDeadlinePresent() {
+    void deadlineShownWhenPresent() {
+        LocalDate due = LocalDate.now().plusDays(1);
         ActionTask task = new ActionTask();
         task.setId(2L);
         task.setTitle("File taxes");
-        task.setDeadlineDate(LocalDate.now().plusDays(1));
+        task.setDeadlineDate(due);
         when(taskRepository.findByStatus(TaskStatus.OPEN)).thenReturn(List.of(task));
-        when(urgencyScorer.score(task)).thenReturn(800.0);
 
         job.sendEveningDigest();
 
         ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
         verify(notificationPort).send(captor.capture());
-        assertThat(captor.getValue()).contains("may be inaccurate");
+        assertThat(captor.getValue()).contains(due.toString());
     }
 
     @Test
-    void highUrgencyTaskGetsRedEmoji() {
+    void highPriorityTaskGetsRedEmoji() {
         ActionTask task = new ActionTask();
         task.setId(3L);
         task.setTitle("Overdue task");
+        task.setPriority(com.luminaai.domain.enums.TaskPriority.HIGH);
         when(taskRepository.findByStatus(TaskStatus.OPEN)).thenReturn(List.of(task));
-        when(urgencyScorer.score(task)).thenReturn(1020.0);
 
         job.sendEveningDigest();
 

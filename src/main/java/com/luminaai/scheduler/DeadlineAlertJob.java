@@ -4,6 +4,7 @@ import com.luminaai.domain.enums.TaskStatus;
 import com.luminaai.entity.ActionTask;
 import com.luminaai.port.NotificationPort;
 import com.luminaai.repository.ActionTaskRepository;
+import com.luminaai.service.task.TaskFormatter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -18,6 +19,7 @@ import java.util.List;
 public class DeadlineAlertJob {
 
     private final ActionTaskRepository taskRepository;
+    private final TaskFormatter taskFormatter;
     private final NotificationPort notificationPort;
 
     @Scheduled(cron = "0 0 8 * * *")
@@ -36,16 +38,9 @@ public class DeadlineAlertJob {
         }
         log.info("Sending {} deadline alert(s).", toAlert.size());
         for (ActionTask task : toAlert) {
-            notificationPort.send(buildAlertMessage(task));
+            notificationPort.send(taskFormatter.formatAlert(task));
             task.setReminderSentDate(today);
             taskRepository.save(task);
         }
-    }
-
-    private String buildAlertMessage(ActionTask task) {
-        return "⚠️ *Task Due Soon*\n" +
-               "#" + task.getId() + " " + task.getTitle() + "\n" +
-               "📅 Due: " + task.getDeadlineDate() + " _(deadline inferred from email — may not be accurate)_\n" +
-               "Reply: `done #" + task.getId() + "` to dismiss.";
     }
 }

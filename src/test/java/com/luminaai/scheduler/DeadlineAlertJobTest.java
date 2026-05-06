@@ -4,6 +4,7 @@ import com.luminaai.domain.enums.TaskStatus;
 import com.luminaai.entity.ActionTask;
 import com.luminaai.port.NotificationPort;
 import com.luminaai.repository.ActionTaskRepository;
+import com.luminaai.service.task.TaskFormatter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,7 +30,7 @@ class DeadlineAlertJobTest {
 
     @BeforeEach
     void setUp() {
-        job = new DeadlineAlertJob(taskRepository, notificationPort);
+        job = new DeadlineAlertJob(taskRepository, new TaskFormatter(), notificationPort);
     }
 
     @Test
@@ -47,7 +48,7 @@ class DeadlineAlertJobTest {
 
         ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
         verify(notificationPort).send(captor.capture());
-        assertThat(captor.getValue()).contains("#5").contains("Submit tax documents").contains("may not be accurate");
+        assertThat(captor.getValue()).contains("#5").contains("Submit tax documents").contains("done #5");
         assertThat(task.getReminderSentDate()).isEqualTo(LocalDate.now());
         verify(taskRepository).save(task);
     }

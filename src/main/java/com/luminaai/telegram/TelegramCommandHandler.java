@@ -1,11 +1,11 @@
 package com.luminaai.telegram;
 
-import com.luminaai.domain.enums.TaskPriority;
 import com.luminaai.domain.enums.TaskStatus;
 import com.luminaai.entity.ActionTask;
 import com.luminaai.port.NotificationPort;
 import com.luminaai.repository.ActionTaskRepository;
 import com.luminaai.service.briefing.BriefingService;
+import com.luminaai.service.task.TaskFormatter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -22,6 +22,7 @@ public class TelegramCommandHandler {
     private final BriefingService briefingService;
     private final ActionTaskRepository taskRepository;
     private final NotificationPort notificationPort;
+    private final TaskFormatter taskFormatter;
 
     public void handle(ParsedCommand command, String chatId) {
         switch (command.type()) {
@@ -44,14 +45,8 @@ public class TelegramCommandHandler {
             notificationPort.send("No open tasks.");
             return;
         }
-
-        StringBuilder sb = new StringBuilder("*Open Tasks*\n\n");
-        for (ActionTask task : open) {
-            sb.append("#").append(task.getId())
-              .append(" ").append(priorityEmoji(task.getPriority()))
-              .append(" ").append(task.getTitle()).append("\n");
-        }
-        notificationPort.send(sb.toString().stripTrailing());
+        String header = "📋 *Open Tasks* (" + open.size() + ")";
+        notificationPort.send(taskFormatter.formatList(open, header));
     }
 
     private void markDone(Optional<Integer> taskId) {
@@ -73,14 +68,6 @@ public class TelegramCommandHandler {
         taskRepository.save(task);
         log.info("Task #{} marked done.", id);
         notificationPort.send("✅ Task #" + id + " marked done.");
-    }
-
-    private String priorityEmoji(TaskPriority priority) {
-        return switch (priority) {
-            case HIGH -> "🔴";
-            case MEDIUM -> "🟡";
-            case LOW -> "🟢";
-        };
     }
 
     private String helpMessage() {
